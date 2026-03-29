@@ -49,11 +49,11 @@ if [ -f "$GITIGNORE" ]; then
 fi
 
 # ── BUILD SUMMARY ────────────────────────────────────────────
-READ_ONLY_COUNT=$(echo "$POLICY" | jq '[.boundaries.read_only // [] | length] | add // 0')
-NO_ACCESS_COUNT=$(echo "$POLICY" | jq '[.boundaries.no_access // [] | length] | add // 0')
-BLOCKED_CMD_COUNT=$(echo "$POLICY" | jq '[.operations.blocked_commands // [] | length] | add // 0')
-SECRETS_ENABLED=$(echo "$POLICY" | jq -r '.secrets.scanning.enabled // false')
-PRE_COMMIT_COUNT=$(echo "$POLICY" | jq '[.operations.pre_commit // [] | length] | add // 0')
+READ_ONLY_COUNT=$(echo "$POLICY" | jq '.boundaries.read_only // [] | length')
+NO_ACCESS_COUNT=$(echo "$POLICY" | jq '.boundaries.no_access // [] | length')
+BLOCKED_CMD_COUNT=$(echo "$POLICY" | jq '.operations.blocked_commands // [] | length')
+SECRETS_ENABLED=$(echo "$POLICY" | jq -r '.secrets.enabled // false')
+PRE_COMMIT_COUNT=$(echo "$POLICY" | jq '.quality.pre_commit // [] | length')
 
 PARTS=""
 

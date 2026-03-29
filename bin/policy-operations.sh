@@ -105,12 +105,12 @@ dep_action_for() {
 }
 
 # Detect new package install
-if echo "$COMMAND" | grep -qE '(npm install|npm i |yarn add|pnpm add|pip install|cargo add|go get)\s'; then
+if echo "$COMMAND" | grep -qE '(npm install|npm i |yarn add|pnpm add|pip install|cargo add|go get)[[:space:]]'; then
   # Exclude flags-only invocations (e.g., npm install with no package name means install from lockfile)
   if echo "$COMMAND" | grep -qE '(npm install|npm i)\s+[^-]' || \
      echo "$COMMAND" | grep -qE '(yarn add|pnpm add|pip install|cargo add|go get)\s+[^-]'; then
     # Exclude pip install --upgrade (handled below as update)
-    if ! echo "$COMMAND" | grep -qE 'pip install\s+--upgrade|pip install\s+-U'; then
+    if ! echo "$COMMAND" | grep -qE 'pip install[[:space:]]+--upgrade|pip install[[:space:]]+-U'; then
       action=$(dep_action_for "new_packages" "block")
       reason="Adding new packages requires approval per policy (dependencies.new_packages=$action)"
       audit_violation "dependency_new" "$(jq -cn \
@@ -123,7 +123,7 @@ if echo "$COMMAND" | grep -qE '(npm install|npm i |yarn add|pnpm add|pip install
 fi
 
 # Detect package removal
-if echo "$COMMAND" | grep -qE '(npm uninstall|npm remove|npm rm|yarn remove|pnpm remove|pip uninstall|cargo remove)\s'; then
+if echo "$COMMAND" | grep -qE '(npm uninstall|npm remove|npm rm|yarn remove|pnpm remove|pip uninstall|cargo remove)[[:space:]]'; then
   action=$(dep_action_for "remove_packages" "block")
   reason="Removing packages requires approval per policy (dependencies.remove_packages=$action)"
   audit_violation "dependency_remove" "$(jq -cn \
@@ -134,7 +134,7 @@ if echo "$COMMAND" | grep -qE '(npm uninstall|npm remove|npm rm|yarn remove|pnpm
 fi
 
 # Detect package update
-if echo "$COMMAND" | grep -qE '(npm update|npm upgrade|yarn upgrade|pnpm update|pip install\s+--upgrade|pip install\s+-U|cargo update)\s'; then
+if echo "$COMMAND" | grep -qE '(npm update|npm upgrade|yarn upgrade|pnpm update|pip install[[:space:]]+--upgrade|pip install[[:space:]]+-U|cargo update)[[:space:]]'; then
   action=$(dep_action_for "update_packages" "block")
   reason="Updating packages requires approval per policy (dependencies.update_packages=$action)"
   audit_violation "dependency_update" "$(jq -cn \
@@ -224,7 +224,7 @@ if echo "$COMMAND" | grep -qE '^git commit\b|;\s*git commit\b|&&\s*git commit\b'
       [ -z "$check_cmd" ] && continue
 
       # Run the pre-commit check from the repo root
-      if ! (cd "$REPO_ROOT" && eval "$check_cmd") >/dev/null 2>&1; then
+      if ! (cd "$REPO_ROOT" && bash -c "$check_cmd") >/dev/null 2>&1; then
         FAIL_COUNT=$((FAIL_COUNT + 1))
         FAILED_CHECKS="${FAILED_CHECKS}\n  - ${check_name}: \`${check_cmd}\`"
       fi

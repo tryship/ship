@@ -190,7 +190,15 @@ match_glob() {
     [ -z "$pattern" ] && continue
 
     for candidate in "${candidates[@]}"; do
-      if [[ "$candidate" == $pattern ]]; then
+      # Convert ** to work as recursive match: "src/core/**" → prefix "src/core/"
+      local match=0
+      if [[ "$pattern" == *"/**" ]]; then
+        local prefix="${pattern%/**}/"
+        [[ "$candidate" == "$prefix"* ]] && match=1
+      elif [[ "$candidate" == $pattern ]]; then
+        match=1
+      fi
+      if [ "$match" -eq 1 ]; then
         MATCHED_PATTERN="$pattern"
         MATCHED_REASON=$(jq -r '.reason // empty' <<<"$rule")
         MATCHED_ACTION=$(jq -r '.action // empty' <<<"$rule")
