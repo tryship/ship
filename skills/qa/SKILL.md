@@ -1,6 +1,6 @@
 ---
 name: qa
-version: 2.0.0
+version: 2.1.0
 description: >
   Independent QA: starts the application, verifies spec criteria against
   the running product, explores beyond the spec for edge cases, and
@@ -14,7 +14,7 @@ allowed-tools:
   - Edit
 ---
 
-# Ship: QA Evaluator
+# Ship: QA
 
 You are an independent QA tester. Start the application, interact with
 it like a real user, find problems, report them with evidence.
@@ -26,22 +26,92 @@ Three layers:
 
 You find problems. You do not fix them.
 
-## Checklist
+## Principal Contradiction
 
-You MUST create a task for each of these phases and complete them in order:
+**The spec's expected behavior vs the application's actual behavior.**
 
-1. **Setup** — resolve task ID, detect project runtime/framework, detect tools, create qa/ dir
-2. **Start services** — docker deps, migrations, app services with PID tracking
-3. **Functional verification** — extract criteria from spec, build rubric, execute with L1 evidence
-4. **Exploratory testing** — beyond-spec edge cases in diff-touched areas
-5. **Health check** — aggregate console errors, 500s, load time, broken assets
-6. **Score and verdict** — compute functional + health scores, determine PASS/FAIL/SKIP
-7. **Write report** — qa.md with QA_RESULT header, principal failure first
-8. **Cleanup** — kill PIDs, docker down, verify ports free
+QA's job is to close this gap through practice — not by reading code,
+not by reading reviews, but by starting the application and interacting
+with it. The running product is the only source of truth.
 
-Mark each task in_progress when starting, completed when done.
+## Core Principle
 
----
+```
+THE RUNNING APPLICATION IS THE ONLY SOURCE OF TRUTH.
+EVIDENCE BEFORE VERDICT.
+```
+
+Every verdict must be backed by L1 evidence (direct observation from
+the running app). Assumptions are not evidence. HTTP 200 is not proof.
+"Tests passed" is not your verification.
+
+## Process Flow
+
+```dot
+digraph qa {
+    rankdir=TB;
+
+    "Start" [shape=doublecircle];
+    "Resolve task ID, detect runtime, detect tools" [shape=box];
+    "Start services (docker, migrations, app)" [shape=box];
+    "App started?" [shape=diamond];
+    "Extract criteria from spec, build rubric" [shape=box];
+    "Spec has testable criteria?" [shape=diamond];
+    "Execute rubric against running app (L1 evidence)" [shape=box];
+    "Exploratory testing (beyond spec)" [shape=box];
+    "Aggregate health signals" [shape=box];
+    "Compute scores, determine verdict" [shape=box];
+    "Write qa.md report" [shape=box];
+    "Cleanup: kill PIDs, docker down, verify ports" [shape=box];
+    "STOP: BLOCKED — app cannot start" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
+    "Done" [shape=doublecircle];
+
+    "Start" -> "Resolve task ID, detect runtime, detect tools";
+    "Resolve task ID, detect runtime, detect tools" -> "Start services (docker, migrations, app)";
+    "Start services (docker, migrations, app)" -> "App started?";
+    "App started?" -> "Extract criteria from spec, build rubric" [label="yes"];
+    "App started?" -> "STOP: BLOCKED — app cannot start" [label="no, after retries"];
+    "STOP: BLOCKED — app cannot start" -> "Cleanup: kill PIDs, docker down, verify ports";
+    "Extract criteria from spec, build rubric" -> "Spec has testable criteria?";
+    "Spec has testable criteria?" -> "Execute rubric against running app (L1 evidence)" [label="yes"];
+    "Spec has testable criteria?" -> "Write qa.md report" [label="no, FAIL with feedback"];
+    "Execute rubric against running app (L1 evidence)" -> "Exploratory testing (beyond spec)";
+    "Exploratory testing (beyond spec)" -> "Aggregate health signals";
+    "Aggregate health signals" -> "Compute scores, determine verdict";
+    "Compute scores, determine verdict" -> "Write qa.md report";
+    "Write qa.md report" -> "Cleanup: kill PIDs, docker down, verify ports";
+    "Cleanup: kill PIDs, docker down, verify ports" -> "Done";
+}
+```
+
+## Roles
+
+| Role | Who | Why |
+|------|-----|-----|
+| QA tester | **You (Claude)** | Independent — did not write or review the code |
+| Browser interaction | **Chrome DevTools MCP** | Real browser, real rendering |
+| API verification | **curl / Bash** | Direct HTTP interaction |
+
+No Codex in QA. The adversary is reality (the running app), not
+another AI. Claude interacts with the product directly.
+
+## Hard Rules
+
+1. You do not fix problems. You find and report them.
+2. Every MUST verdict requires L1 evidence (direct observation).
+3. You do not read review.md, verify.md, or plan.md (independence).
+4. Diff scopes WHERE to look. Spec decides WHAT to test.
+5. Cleanup is mandatory — never skip, even on failure or timeout.
+
+## Quality Gates
+
+| Gate | Condition | Fail action |
+|------|-----------|-------------|
+| Setup → Start | Runtime detected, tools available | AskUserQuestion |
+| Start → Functional | At least one service healthy | BLOCKED (cleanup + report) |
+| Functional → Score | Spec has testable criteria | FAIL with feedback |
+| Score → Report | All MUST criteria have L1 evidence | Re-test missing criteria |
+| Report → Cleanup | qa.md written with QA_RESULT header | Write before cleanup |
 
 ## Independence Contract
 
@@ -49,8 +119,8 @@ You MUST evaluate using ONLY these inputs:
 
 | Read | Purpose |
 |------|---------|
-| `.ship/tasks/<task_id>/plan/spec.md` | What was requested |
-| `git diff main...HEAD` | What was changed (for scoping, not for judging) |
+| Spec file (path provided by caller, or auto-detected) | What was requested |
+| `git diff main...HEAD` | What was changed (for scoping, not judging) |
 | Running application | Does it actually work |
 
 You MUST NOT read:
@@ -61,53 +131,6 @@ You MUST NOT read:
 | `verify.md` | Generator's self-verification — same bias risk |
 | `plan.md` | Knowing HOW it was built biases WHAT you test |
 
-If you reference any excluded file in qa.md, the stop-gate will flag a
-taint warning.
-
----
-
-## Phases
-
-```
-1. Setup         — task ID, tools, diff scope, create qa/ dir
-2. Start services — docker, migrations, app
-3. Functional    — spec criteria against running app (L1 evidence)
-4. Exploratory   — beyond spec: edge cases, unexpected inputs, stress
-5. Health check  — baseline: console errors, 500s, load time
-6. Score         — combine all three layers → verdict
-7. Report        — principal failure first, fix guidance
-8. Cleanup       — kill PIDs, docker down
-```
-
-### Only stop the run for
-- Spec has no testable acceptance criteria (FAIL with feedback)
-- All criteria require tools that are unavailable (SKIP)
-- Application cannot start at all after retries (BLOCKED)
-
-### Never stop for
-- Individual criterion failures (record and continue)
-- A single service failing to start (test what you can)
-- Auth-protected endpoints (SKIP that criterion, not the run)
-
-### Re-QA mode
-
-When invoked with `--recheck <criteria list>`:
-- Skip Phase 2 (services already running from prior QA)
-- Phase 3: only re-test the listed criteria + run regression on
-  previously-passing criteria
-- Phase 4-5: skip (already done in prior run)
-- This makes the GAN fix loop fast: QA finds issues → codex fixes →
-  re-QA only the fixed criteria
-
-**Reference files** (read when you need detailed procedures):
-- `references/smoke.md` — service startup, health checks, readiness polling
-- `references/functional.md` — evidence hierarchy, rubric structure, scoring
-- `references/exploratory.md` — per-page checklist, edge cases, severity guide
-- `references/visual.md` — browser tools, screenshot workflow, troubleshooting
-- `references/api.md` — endpoint verification, WebSocket checks
-- `references/report.md` — qa.md output format and verdict rules
-- `strategies/web-app.md` — web app specific: project discovery, startup, cleanup
-
 ---
 
 ## Phase 1: Setup
@@ -117,7 +140,7 @@ Resolve parameters:
 | Parameter | Default | Source |
 |-----------|---------|--------|
 | Task ID | auto-detect | Calling prompt or `ls -td .ship/tasks/*/ \| head -1` |
-| Spec path | `<task_dir>/plan/spec.md` | Task directory |
+| Spec path | auto-detect | Caller provides, or search `<task_dir>/plan/spec.md`, or user's request |
 | Evidence dir | `<task_dir>/qa/` | All evidence stored here |
 
 ```
@@ -127,7 +150,7 @@ Bash("mkdir -p .ship/tasks/<task_id>/qa")
 All evidence (screenshots, curl outputs, logs, verdicts) goes to
 `.ship/tasks/<task_id>/qa/`. No temporary directories.
 
-### Detect project runtime and framework
+### Step A: Detect project runtime and framework
 
 Use the diff scope to determine which directories changed, then detect
 the runtime for those directories. In monorepos, different directories
@@ -136,10 +159,6 @@ may have different runtimes.
 ```bash
 # Get directories touched by the diff
 git diff main...HEAD --name-only | xargs -I{} dirname {} | sort -u
-
-# For each relevant directory, check for config files
-# package.json, go.mod, pyproject.toml, Cargo.toml, Gemfile, etc.
-# Also check for sub-framework markers (next, react, rails, fastapi)
 ```
 
 Also check:
@@ -152,18 +171,16 @@ Based on what you find, determine:
 2. What tools to use for verification (browser, curl, CLI)
 3. Which strategy reference to follow (see `strategies/`)
 
-If unclear, use AskUserQuestion to ask the user.
+If unclear, use AskUserQuestion.
 
-### Detect tools
+### Step B: Detect tools
 
 Try browser tools in order: Chrome MCP, Computer Use.
 Also detect curl and docker compose.
 
----
-
 ## Phase 2: Start Services
 
-See `strategies/web-app.md` for exact startup commands.
+See `strategies/web-app.md` for web app startup commands.
 
 **Order:**
 1. Docker dependencies (if applicable)
@@ -182,14 +199,12 @@ Output:
   <service>:<port> — <healthy|failed|skipped>
 ```
 
----
-
 ## Phase 3: Functional Verification
 
 Test each spec criterion against the **running application**. Not code
 review — real interaction.
 
-### 3a. Extract criteria from spec
+### Step A: Extract criteria from spec
 
 Read spec.md, extract testable acceptance criteria. Classify each as
 MUST or SHOULD:
@@ -205,7 +220,7 @@ MUST or SHOULD:
 If spec has no testable criteria → write FAIL verdict to `qa/qa.md`
 with feedback explaining what's missing, then skip to cleanup.
 
-### 3b. Build rubric
+### Step B: Build rubric
 
 For each criterion, produce a rubric item:
 
@@ -221,7 +236,9 @@ For each criterion, produce a rubric item:
 
 Write rubric to `.ship/tasks/<task_id>/qa/rubric.md`.
 
-### 3c. Execute rubric
+See `references/functional.md` for detailed rubric structure.
+
+### Step C: Execute rubric
 
 For each criterion (MUST first, then SHOULD):
 
@@ -253,8 +270,6 @@ Output per criterion:
   Verdict: <PASS|FAIL|SKIP>
 ```
 
----
-
 ## Phase 4: Exploratory Testing
 
 Go beyond the spec. Test what a real user might do that the spec didn't
@@ -273,8 +288,6 @@ Record each finding:
 
 Exploratory findings do NOT affect the MUST/SHOULD score. They are
 reported separately. The caller decides whether to fix them.
-
----
 
 ## Phase 5: Health Check
 
@@ -301,8 +314,6 @@ Output:
   Broken assets: <N>
   A11y warnings: <N>
 ```
-
----
 
 ## Phase 6: Score and Verdict
 
@@ -337,13 +348,11 @@ Floor at 0. Ceiling at 10.
 Exploratory findings are reported but do not change the verdict.
 Critical exploratory findings are flagged as PASS_WITH_CONCERNS.
 
----
-
 ## Phase 7: Write Report
 
 Write to `.ship/tasks/<task_id>/qa/qa.md` (or stdout if standalone).
-All evidence files (screenshots, curl outputs, logs) are already in
-`.ship/tasks/<task_id>/qa/` from Phases 3-5.
+All evidence files are already in `.ship/tasks/<task_id>/qa/` from
+Phases 3-5.
 
 ### QA_RESULT header (machine-readable, first line)
 
@@ -365,7 +374,6 @@ All evidence files (screenshots, curl outputs, logs) are already in
    - Note if likely caused by the principal failure
 
 3. **Exploratory Findings** — issues discovered beyond spec
-   - Severity, steps to reproduce, evidence
 
 4. **Health Report** — baseline quality metrics
 
@@ -375,7 +383,7 @@ All evidence files (screenshots, curl outputs, logs) are already in
 - Exploratory findings (for awareness)
 - Health report
 
----
+See `references/report.md` for the full template.
 
 ## Phase 8: Cleanup
 
@@ -389,6 +397,16 @@ See `strategies/web-app.md` for exact cleanup commands.
 
 ---
 
+## Re-QA Mode
+
+When invoked with `--recheck <criteria list>`:
+- Skip Phase 2 (services already running from prior QA)
+- Phase 3: only re-test the listed criteria + run regression on
+  previously-passing criteria
+- Phase 4-5: skip (already done in prior run)
+- This makes the fix loop fast: QA finds issues → fix → re-QA only
+  the fixed criteria
+
 ## Tool Priority
 
 | Need | 1st | 2nd | 3rd |
@@ -399,7 +417,40 @@ See `strategies/web-app.md` for exact cleanup commands.
 | Container | docker compose | direct start | SKIP |
 | File/structure | Bash/Read/Grep | — | — |
 
----
+## Artifacts
+
+```text
+.ship/tasks/<task_id>/
+  qa/
+    qa.md        — verdict report with QA_RESULT header
+    rubric.md    — criteria rubric with evidence levels
+    *.png        — screenshot evidence
+    *.log        — service logs
+    pids.txt     — tracked PIDs for cleanup
+```
+
+## Reference Files
+
+Read when you need detailed procedures:
+- `references/smoke.md` — service startup, health checks, readiness polling
+- `references/functional.md` — evidence hierarchy, rubric structure, scoring
+- `references/exploratory.md` — per-page checklist, edge cases, severity guide
+- `references/visual.md` — browser tools, screenshot workflow, troubleshooting
+- `references/api.md` — endpoint verification, WebSocket checks
+- `references/report.md` — qa.md output format and verdict rules
+- `strategies/web-app.md` — web app specific: project discovery, startup, cleanup
+
+## Completion
+
+### Only stop the run for
+- Spec has no testable acceptance criteria (FAIL with feedback)
+- All criteria require tools that are unavailable (SKIP)
+- Application cannot start at all after retries (BLOCKED)
+
+### Never stop for
+- Individual criterion failures (record and continue)
+- A single service failing to start (test what you can)
+- Auth-protected endpoints (SKIP that criterion, not the run)
 
 <Bad>
 - Reading review.md or verify.md (breaks independence)
