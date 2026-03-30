@@ -1,7 +1,7 @@
 ---
 name: plan
-version: 0.2.0
-description: "Adversarial pre-coding planning: you investigate the codebase, write spec + plan, then Codex challenges it. Use when the task has ambiguous requirements, multi-file changes, or architectural decisions that need vetting."
+version: 0.3.0
+description: "Adversarial pre-coding planning: you investigate the codebase, write a plan, then Codex independently produces its own plan. Differences are resolved by code evidence, and a blind execution drill verifies implementability."
 allowed-tools:
   - Bash
   - Read
@@ -9,113 +9,114 @@ allowed-tools:
   - Edit
   - Glob
   - Grep
-  - Agent
   - AskUserQuestion
+  - mcp__codex__codex
+  - mcp__codex__codex-reply
 ---
 
 # Ship: Plan
 
 You ARE the planner. You read code, investigate, write spec and plan.
 You must read the code yourself — delegating investigation loses the
-context needed to write a good plan. Only the Codex challenger pass
-is delegated.
+context needed to write a good plan. Codex produces an independent plan,
+not a critique of yours.
+
+## Principal Contradiction
+
+**The plan's model of the code vs the code's actual reality.**
+
+Plans fail not because of bad reasoning, but because of unverified
+assumptions about what the code does. The adversary is not another AI —
+it is reality itself. Every mechanism in this skill exists to close the
+gap between what the planner believes and what the code actually does.
 
 ## Core Principle
 
 ```
 NO INVESTIGATION, NO PLAN.
+PRACTICE IS THE CRITERION OF TRUTH.
 ```
 
 Every claim in spec.md and plan.md must be backed by code evidence you
-personally verified. You do not guess. You do not assume. You read the
-code, trace the paths, and record what you found. Unverified claims are
-flagged as assumptions, not stated as facts.
+personally verified. Plans are validated against code reality and
+execution rehearsal, not by debate or persuasion.
 
-## Master Flow
+## Process Flow
 
 ```dot
 digraph plan {
     rankdir=TB;
-    node [shape=box, style=filled];
 
-    init [label="1. INIT\nResolve task_id\nCreate dir", fillcolor="#e0e0e0"];
-    investigate [label="2. INVESTIGATE\nRead code, trace paths,\nbuild verified model", fillcolor="#cce5ff"];
-    write [label="3. WRITE PLAN\nspec.md + plan.md\nfrom evidence", fillcolor="#cce5ff"];
-    challenge [label="4. CODEX CHALLENGER\n(delegated)\nIndependent critique", fillcolor="#ffecb3"];
-    absorb [label="5. ABSORB FEEDBACK\nAccept/reject/defer\neach card", fillcolor="#cce5ff"];
-    summary [label="6. ROUND SUMMARY\nDiffs + disagreements", fillcolor="#d4edda"];
-    converge [label="CONVERGED?\nOr round == 2?", shape=diamond, fillcolor="#fff3cd"];
-    ready [label="READY FOR\nEXECUTION", shape=doublecircle, fillcolor="#d4edda"];
-    blocked [label="BLOCKED", shape=octagon, fillcolor="#f8d7da"];
-    clarify [label="CLARIFICATION\nREQUIRED", shape=octagon, fillcolor="#f8d7da"];
+    "Start" [shape=doublecircle];
+    "Resolve task_id, create dir" [shape=box];
+    "Read code, trace paths, build verified model" [shape=box];
+    "Task too vague?" [shape=diamond];
+    "Ask user for clarification" [shape=box];
+    "Write spec.md + plan.md (Plan A)" [shape=box];
+    "Codex produces Plan B independently (MCP)" [shape=box];
+    "Compare Plan A vs Plan B" [shape=box];
+    "Critical gap found?" [shape=diamond];
+    "Resolve divergences by code evidence" [shape=box];
+    "Escalated items?" [shape=diamond];
+    "Ask user to resolve" [shape=box];
+    "Codex walks plan as implementer (MCP)" [shape=box];
+    "All steps CLEAR?" [shape=diamond];
+    "Revise plan for unclear steps" [shape=box];
+    "STOP: BLOCKED — unresolvable without user" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
+    "Ready for execution" [shape=doublecircle];
 
-    init -> investigate;
-    investigate -> write [label="model built"];
-    investigate -> clarify [label="too vague"];
-    write -> challenge;
-    challenge -> absorb [label="cards received"];
-    challenge -> absorb [label="codex unavailable\n(self-critique)"];
-    absorb -> summary;
-    summary -> converge;
-    converge -> ready [label="converged or\nround == 2"];
-    converge -> investigate [label="next round\n(targeted re-investigation)"];
-    converge -> blocked [label="same objection\nre-rejected"];
+    "Start" -> "Resolve task_id, create dir";
+    "Resolve task_id, create dir" -> "Read code, trace paths, build verified model";
+    "Read code, trace paths, build verified model" -> "Task too vague?";
+    "Task too vague?" -> "Ask user for clarification" [label="yes"];
+    "Ask user for clarification" -> "Read code, trace paths, build verified model";
+    "Task too vague?" -> "Write spec.md + plan.md (Plan A)" [label="no"];
+    "Write spec.md + plan.md (Plan A)" -> "Codex produces Plan B independently (MCP)";
+    "Codex produces Plan B independently (MCP)" -> "Compare Plan A vs Plan B";
+    "Compare Plan A vs Plan B" -> "Critical gap found?";
+    "Critical gap found?" -> "Read code, trace paths, build verified model" [label="yes, re-investigate"];
+    "Critical gap found?" -> "Resolve divergences by code evidence" [label="no"];
+    "Resolve divergences by code evidence" -> "Escalated items?";
+    "Escalated items?" -> "Ask user to resolve" [label="yes"];
+    "Ask user to resolve" -> "Codex walks plan as implementer (MCP)";
+    "Escalated items?" -> "Codex walks plan as implementer (MCP)" [label="no"];
+    "Codex walks plan as implementer (MCP)" -> "All steps CLEAR?";
+    "All steps CLEAR?" -> "Ready for execution" [label="yes"];
+    "All steps CLEAR?" -> "Revise plan for unclear steps" [label="unclear, max 1 loop"];
+    "Revise plan for unclear steps" -> "Codex walks plan as implementer (MCP)";
+    "All steps CLEAR?" -> "STOP: BLOCKED — unresolvable without user" [label="blocked"];
 }
 ```
 
-### Only stop for
-- Task too vague to plan → ask user via AskUserQuestion
-- Same objection re-rejected without new evidence → `blocked`
-- Timeout (10 min/round, 20 min total) → preserve artifacts, summarize honestly
-
-### Never stop for
-- Codex unavailable (self-critique with warning)
-- Challenger parse failure (retry once, then skip with warning)
-- Round 2 without convergence (proceed to `ready_for_execution` with warnings)
-
-## Task ID
-
-1. If invoked by ship-coding, the task_id is provided and
-   `.ship/tasks/<task_id>/plan/` already exists.
-2. If invoked standalone, generate `task_id` as a short slug from the task
-   description (e.g., "fix login timeout" → `fix-login-timeout`).
-   ```
-   mkdir -p .ship/tasks/<task_id>/plan
-   ```
-
-## Overview
-
-- You are both the investigator and the planner. No delegation for these.
-- Fixed 2-round loop. `max_rounds` is always `2`.
-- Codex is the independent challenger. Delegated via `codex exec`.
-- `--single-model`: replace Codex with self-critique (same card format).
-
-## What You Do vs What You Delegate
+## Roles
 
 | Phase | Who | Why |
 |-------|-----|-----|
 | Investigation (read code, trace paths) | **You** | You need the context to write a good plan |
-| Write spec.md + plan.md | **You** | Investigation context must not be lost |
-| Challenger review | **Codex** (delegated) | Independence requires separation |
-| Absorb feedback + revise | **You** | You have the context to judge cards |
-| Path validation of cards | **You** | Quick file existence checks |
+| Write spec.md + plan.md (Plan A) | **You** | Investigation context must not be lost |
+| Independent Plan B | **Codex** (via MCP) | Independence requires separation |
+| Diff & verify divergences | **You** | You have the context + code access to judge |
+| Execution Drill | **Codex** (via MCP) | Fresh eyes test implementability |
 
 ## Hard Rules
 
 1. You read all code you reference. No citing files you haven't opened.
-2. Codex never writes artifacts. Codex only reads and critiques.
-3. Challenger contract re-sent every round. Never rely on memory.
+2. Codex never sees Plan A when producing Plan B. Independence is sacred.
+3. Divergences are resolved by code evidence, not argument.
 4. Disk artifacts are truth. Prior conversation is reference only.
-5. Forced best objection. Even when Codex agrees, it must provide its
-   strongest remaining objection.
+5. The execution drill must pass before any plan is marked ready.
 
-## Decision Principles
+## Quality Gates
 
-Complete investigation > Explicit claims > Bias toward action > Escalate honestly.
+| Gate | Condition | Fail action |
+|------|-----------|-------------|
+| Investigation → Write | All claims trace to file:line you read | Re-investigate |
+| Write → Plan B | spec.md has Investigation section, plan.md has concrete steps | Revise |
+| Diff → Drill | Zero `escalated` items (or user resolved them) | Ask user |
+| Drill → Ready | Zero BLOCKED steps, zero UNCLEAR steps | Revise plan (max 1 loop) |
 
-"Complete" means investigation covers the full path and artifacts cover
-requirements and edge cases. "Escalate honestly" means stop at `blocked`
-rather than pretending the task is ready.
+No artifact passes to the next phase without meeting its gate.
+Defects are caught at source, never passed downstream.
 
 ---
 
@@ -124,6 +125,16 @@ rather than pretending the task is ready.
 - Resolve task_id, create `.ship/tasks/<task_id>/plan/` directory.
 - If resuming, read existing artifacts and determine current state.
 - Collect branch name and HEAD SHA.
+
+### Task ID
+
+1. If invoked by ship:auto, the task_id is provided and
+   `.ship/tasks/<task_id>/plan/` already exists.
+2. If invoked standalone, generate `task_id` as a short slug from the task
+   description (e.g., "fix login timeout" → `fix-login-timeout`).
+   ```
+   mkdir -p .ship/tasks/<task_id>/plan
+   ```
 
 ## Phase 2: Investigate
 
@@ -182,7 +193,7 @@ Write an `## Investigation` section in spec.md with:
 **A spec.md without an Investigation section is incomplete.**
 **A plan.md that references code you haven't read is invalid.**
 
-## Phase 3: Write Plan
+## Phase 3: Write Plan A
 
 With your investigation complete, write `spec.md` and `plan.md`.
 
@@ -217,205 +228,171 @@ Implementation steps with:
 - Tests that will break and how to update them
 - New tests needed
 
-## Phase 4: Codex Challenger (Delegated)
+Each step must be concrete enough that an implementer can execute it
+without inventing decisions. If a step requires a choice, make the
+choice explicit in the plan.
 
-Compose a prompt containing the challenger contract (verbatim below)
-plus all artifact contents. Delegate via:
-- `Bash("codex exec -s read-only '<prompt>' --full-auto")` (default)
-- Self-critique with same card format (when Codex unavailable)
+## Phase 4: Codex Independent Plan B (via MCP)
 
-### Challenger contract
+Call Codex via MCP to produce an independent plan for the same task.
+**Codex must NOT see Plan A.** Send only the original task description
+and point Codex at the repo.
 
-```text
-You are the CHALLENGER for this task. Your role:
-- Read the canonical artifacts on disk AND the repository source code as the source of truth.
-- Prior conversation is reference only; artifacts and code override memory.
-- Produce 3-7 FALSIFICATION CARDS. Each card must be one of three types:
+Read `independent-planner.md` for the MCP call parameters, role, and prompt template.
 
-  TYPE A — Code-grounded:
-  1. Failure scenario: what specifically breaks
-  2. Impacted path: file and line (or function/struct name) — must resolve to an existing file at HEAD or a file the plan explicitly proposes to create
-  3. Repo evidence: actual code snippet proving the issue exists
-  4. Severity: blocker | major | minor
-  5. Required plan change: what the plan must do differently
+### When Codex is unavailable
 
-  TYPE B — Structural:
-  1. Failure scenario: what specifically breaks
-  2. Plan section: which section of spec.md or plan.md this challenges
-  3. Logical evidence: the reasoning chain showing why this would fail
-  4. Severity: blocker | major | minor
-  5. Required plan change: what the plan must do differently
+If MCP call fails, perform self-critique as Plan B:
+1. Re-read your Plan A as if seeing it for the first time
+2. Deliberately look for what you might have missed
+3. Produce a Plan B section in the same format
+4. Add a warning: `⚠ Plan B was self-generated, not independent`
 
-  TYPE C — Investigation gap:
-  1. What the planner claims without sufficient evidence
-  2. What code path was NOT traced (e.g., "callers of X were not checked")
-  3. Counter-evidence or plausible alternative found by reading the code
-  4. Severity: blocker | major | minor
-  5. What investigation the planner must do before this claim can stand
+## Phase 5: Diff & Verify
 
-- For Type A cards: any card without a file path that exists at HEAD (or is listed as a new file in the plan) and a code snippet from that file is INVALID and will be discarded.
-- For Type B cards: any card without a specific plan section reference and a logical argument is INVALID and will be discarded.
-- For Type C cards: you must show concrete counter-evidence (a file:line
-  the planner did not read, a caller they did not trace, an existing
-  defense they did not mention). "The investigation might be incomplete"
-  without evidence is INVALID.
-- If fewer than 3 genuine issues exist, produce your best cards and mark the remainder as low-confidence.
-- You NEVER write to spec.md or plan.md; you only challenge.
-- Even if you agree overall, you MUST provide a Strongest Card.
+Compare Plan A and Plan B. Categorize every divergence.
 
-INVESTIGATION REVIEW (always perform, in addition to cards above):
-Before writing cards, independently verify the planner's Investigation
-section in spec.md. For each key claim, check whether the planner
-actually read the code they cite. Specifically:
-- Trace the call chain one level further than the planner did.
-  Did they miss a caller/consumer that changes the picture?
-- Search for existing code that already handles the problem.
-  Did the planner overlook a defense, guard, or fallback?
-- Check if files the planner proposes to create already exist.
-- Check if values the planner proposes to change are asserted
-  in existing tests.
-Flag any gaps as Type C cards.
-```
+### For each divergence point:
 
-### Challenger output format
+1. **Identify the divergence** — what does Plan A say vs Plan B?
+2. **Verify against code** — read the actual code to determine which
+   is correct. Do NOT resolve by reasoning about which "sounds better."
+3. **Assign disposition:**
+   - **patched** → Plan A updated based on evidence. Show the diff.
+   - **proven-false** → Codex's claim is wrong. Cite the code evidence.
+   - **escalated** → Cannot resolve from code alone. Needs user input.
+
+### Convergence points (both plans agree):
+
+Mark as **confirmed** — independent replication increases confidence.
+
+### Record in diff-report.md
 
 ```markdown
-### Card 1: [Short title]
-- **Type:** code | structural | investigation-gap
-- **Failure:** [What breaks and why]
-- **Path:** `path/to/file:42` — `FunctionName` (code/investigation-gap type) OR **Section:** spec.md § "Section Name" (structural type)
-- **Evidence:**
-  ```
-  // actual code or logical reasoning
-  ```
-- **Severity:** blocker | major | minor
-- **Required change:** [What the plan must do differently]
+## Convergence Points
+- [What both plans independently agreed on]
 
-### Card 2: ...
-(repeat for each card, 3-7 total)
+## Divergences
 
-### Strongest Card
-[Which card above is most likely to cause real failure, and why]
+### D1: <short title>
+- **Plan A says:** ...
+- **Plan B says:** ...
+- **Code evidence:** file:line — <what the code actually shows>
+- **Disposition:** patched | proven-false | escalated
+- **Action taken:** <diff or escalation reason>
 
-### Metrics
-- Total cards: N
-- Code-grounded: N
-- Structural: N
-- Investigation-gap: N
-- Blockers: N | Major: N | Minor: N
+### D2: ...
+
+## Summary
+- Confirmed: N points
+- Patched: N (Plan A updated)
+- Proven-false: N (Codex was wrong)
+- Escalated: N (needs user input)
 ```
 
-### Path validation
+### After diff resolution:
 
-After receiving challenger output, validate Type A and Type C cards:
-- For each file path, run `test -f "$path"`.
-- Cards with invalid paths that aren't planned new files → INVALID.
-- Write validated cards to `review-log.md`.
+- Update `spec.md` and `plan.md` with all `patched` items.
+- If any `escalated` items exist:
+  - **Standalone mode:** ask user via AskUserQuestion before proceeding.
+  - **ship:auto mode:** do NOT ask user. Treat escalated items as BLOCKED
+    and return. Auto owns the only user-approval gate (Phase 3).
+- If diff reveals a critical investigation gap (e.g., Plan B found
+  important code Plan A missed entirely), go back to Phase 2 for
+  targeted re-investigation. Maximum 1 re-investigation loop.
 
-## Phase 5: Absorb Feedback
+## Phase 6: Blind Execution Drill (via MCP)
 
-For every challenger card, decide: `accepted`, `rejected`, or `deferred`.
+The final gate. Give Codex the merged plan and ask it to act as an
+implementer. Its job: walk through the plan steps and flag every place
+it would need to guess.
 
-- **accepted** → update spec.md and/or plan.md now.
-  For Type C cards: do the additional investigation, then update.
-- **rejected** → log specific rationale. You must cite code evidence
-  for your rejection, not just dismiss the card.
-- **deferred** → note in review-log.md with reason.
+Read `execution-drill.md` for the MCP call parameters, role, and prompt template.
+Use a **new** MCP session, not the Plan B thread.
 
-Record all decisions in `review-log.md`.
+### After the drill:
 
-## Phase 6: Round Summary
-
-- Compute diffs for spec.md and plan.md.
-- Count remaining disagreements.
-- Increment round counter.
-- Publish human-readable summary.
-- After final round, append metrics to `review-log.md`.
-
-## Convergence
-
-Mechanical convergence requires all of:
-- `spec.md` diff fewer than 5 lines this round
-- `plan.md` diff fewer than 5 lines this round
-- `remaining_disagreements == 0`
-
-Rules:
-- "Strongest Card" does not count as disagreement unless accepted.
-- Stop after `max_rounds == 2` with warnings for unresolved items.
-- If same objection re-rejected without new evidence → `blocked`.
+- **All CLEAR** → Plan is ready for execution.
+- **UNCLEAR items** → Revise plan.md to make each step unambiguous.
+  Then re-run ONLY the unclear steps through a follow-up drill
+  (use `mcp__codex__codex-reply` on the drill thread).
+  Maximum 1 revision loop.
+- **BLOCKED items** → If resolvable by investigation, investigate and
+  fix. If not, escalate to user or mark plan as `blocked`.
 
 ---
 
-## Canonical Artifacts
+## Artifacts
 
 ```text
 .ship/tasks/<task_id>/
   plan/
-    spec.md         — what to build (investigation + requirements)
-    plan.md         — how to build it (steps with file:line refs)
-    review-log.md   — debate record (cards, decisions, metrics)
+    spec.md          — what to build (investigation + requirements)
+    plan.md          — how to build it (steps with file:line refs)
+    diff-report.md   — Plan A vs Plan B divergences and resolutions
 ```
-
----
 
 ## Timeouts
 
-- Maximum 10 minutes per round
+- Maximum 10 minutes for investigation
 - Maximum 20 minutes total
-- On timeout: preserve artifacts, summarize honestly
+- On timeout: preserve artifacts, summarize honestly, mark as blocked
 
 ## Error Handling
 
 | Error | Action |
 |-------|--------|
-| Codex unavailable | Self-critique with same card format + warning |
-| Challenger parse failure | Retry once with format reminder, then skip |
-| Timeout (10 min/round) | Abort round, preserve artifacts, summarize |
+| Codex MCP unavailable | Self-produce Plan B + self-drill with warning |
+| Codex output unparseable | Retry once with format reminder, then skip with warning |
+| Timeout | Abort, preserve artifacts, summarize honestly |
+| Re-investigation needed | Maximum 1 loop back to Phase 2 |
+| Drill revision needed | Maximum 1 revision loop |
 
-## Completion and Handoff
+## Completion
 
-This skill can be invoked in two ways. Detect which one at init and
-handle completion accordingly:
+### Only stop for
+- Task too vague to plan → ask user via AskUserQuestion
+- Execution drill blockers that require user input → `blocked`
+- Timeout → preserve artifacts, summarize honestly
+
+### Never stop for
+- Codex unavailable (self-produce Plan B with warning)
+- Codex output parse failure (retry once, then skip with warning)
 
 ### Detecting invocation mode
 
 - **Standalone** (`/plan`): the user invoked plan directly.
-  The calling prompt does NOT contain a task_id from ship-coding.
-- **From ship-coding**: the calling prompt contains a task_id AND
-  mentions ship-coding or says "design phase." Ship-coding is waiting
-  for artifacts to exist.
+- **From ship:auto**: the calling prompt contains a task_id.
+  Ship:auto is waiting for artifacts to exist.
 
-### Standalone completion (`ready_for_execution`)
-
-Present a summary and offer the user concrete next steps:
+### Standalone completion
 
 ```
 [Plan] Planning complete for "<task title>".
 
 ## Summary
 - Investigation: <N> files traced, <M> existing defenses found
-- Spec: <N> requirements, <M> acceptance criteria
-- Challenger: <N> cards received, <accepted>/<rejected>/<deferred>
-- Unresolved: <list any warnings or deferred items>
+- Independent replication: <N> convergences, <M> divergences resolved
+- Execution drill: <N>/<total> steps CLEAR
 
 ## Artifacts
 - spec.md: .ship/tasks/<task_id>/plan/spec.md
 - plan.md: .ship/tasks/<task_id>/plan/plan.md
+- diff-report.md: .ship/tasks/<task_id>/plan/diff-report.md
 
 ## What's next?
-1. **Implement now** — run /ship-coding to execute this plan
+1. **Implement now** — run /implement to execute this plan
 2. **Review the plan** — read the artifacts and give feedback
-3. **Challenge further** — run another round of adversarial review
-4. **Reject and re-plan** — discard this plan and start over
+3. **Re-plan** — discard this plan and start over
 ```
 
-### Ship-coding completion (`ready_for_execution`)
+### Ship:auto completion
 
-Do NOT ask the user. Ship-coding is waiting for artifacts. Just:
+Do NOT ask the user. Ship:auto is waiting for artifacts. Just:
 
 1. Verify `spec.md` and `plan.md` are non-empty on disk.
-2. Output a one-line status: `[Plan] Design complete — spec.md and plan.md ready.`
-3. Return. Ship-coding will read the artifacts and continue its pipeline.
+2. Output: `[Plan] Design complete — spec.md and plan.md ready.`
+3. Return.
 
 ### Blocked (both modes)
 
@@ -423,6 +400,7 @@ Do NOT ask the user. Ship-coding is waiting for artifacts. Just:
 [Plan] BLOCKED
 REASON: <what failed and why>
 ATTEMPTED: <what was tried>
+UNRESOLVED: <escalated items from diff or drill>
 RECOMMENDATION: <what the user should do next>
 ```
 
@@ -435,8 +413,9 @@ RECOMMENDATION: <what the user should do next>
 - Proposing to create a file without checking if it already exists
 - Changing a value without grepping tests that assert the old value
 - Listing schema/interface fields without cross-referencing all consumers
-- Accepting all challenger cards without evaluating them (rubber-stamping)
-- Rejecting all challenger cards without code evidence (dismissing)
-- Skipping the challenger because "the plan looks solid"
-- Paraphrasing the role contracts instead of sending them verbatim
+- Letting Codex see Plan A when producing Plan B (breaks independence)
+- Resolving divergences by "which sounds better" instead of code evidence
+- Marking plan ready when drill has BLOCKED items
+- Skipping the drill because "the plan looks solid"
+- Self-judging closure without code evidence for each disposition
 </Bad>

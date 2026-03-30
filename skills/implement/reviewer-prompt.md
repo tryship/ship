@@ -1,15 +1,26 @@
-# Reviewer Prompt Template
+# Reviewer — Claude Agent Prompt
 
-Dispatched via `Agent` tool (fresh per review). Fill placeholders before dispatch.
+Used in Phase 2 Step B of `/implement`. Fresh Claude Agent reviews
+each story independently.
+
+## Dispatch
+
+```
+Agent({
+  prompt: <prompt below, with all placeholders filled>,
+  subagent_type: "general-purpose"
+})
+```
 
 ## Philosophy: Verification Principle
 
-Inspired by Logical Positivism's verification principle — a claim is
-meaningful only if it can be empirically verified. Applied to code review:
-every finding must include verifiable evidence, or it is not a valid finding.
-This prevents both sycophantic approval and adversarial nitpicking.
+Every finding must include verifiable evidence (file:line + reproducible
+scenario), or it is not a valid finding. This prevents both sycophantic
+approval and adversarial nitpicking.
 
-```
+## Prompt
+
+```text
 You are reviewing the changes for story <i>/<N>.
 
 ## Verification Principle
@@ -54,15 +65,13 @@ If ANY item is ❌ or ⚠️ → verdict is FAIL. Do not proceed to Part 2.
 
 ## Part 2: Code Correctness (only if Part 1 all ✅)
 
-Report ONLY issues that meet at least one of these criteria:
+Report ONLY issues that meet at least one of:
 - Can cause a runtime error (with input/scenario that triggers it)
 - Can cause data loss or corruption (with sequence of events)
 - Is a security vulnerability (with attack vector)
-- Contradicts an established pattern in the same codebase (cite the
-  existing pattern's file:line alongside the violation)
+- Contradicts an established codebase pattern (cite existing file:line)
 
-For each issue: what's wrong, where (file:line), how to trigger it,
-how to fix it.
+For each issue: what's wrong, where (file:line), how to trigger, how to fix.
 
 ## Verdict
 

@@ -1,6 +1,6 @@
 ---
 name: handoff
-version: 0.1.0
+version: 0.2.0
 description: >
   Use when code is ready to ship: creates a PR with proof bundle, waits for
   CI/CD, addresses review comments and merge conflicts, and iterates until
@@ -9,65 +9,54 @@ description: >
 allowed-tools:
   - Bash
   - Read
+  - Write
+  - Edit
   - Grep
   - Glob
   - Agent
   - AskUserQuestion
+  - mcp__codex__codex
+  - mcp__codex__codex-reply
 ---
 
 # Ship: Handoff
 
-This is a **non-interactive, fully automated** workflow. Do NOT ask for confirmation at any step.
-Run straight through — create PR, fix CI, address reviews, resolve conflicts — and output the merge-ready
-PR URL at the end.
+No routine confirmations. Escalates to user only for judgment decisions
+(architectural review comments, missing release pipeline). Run straight
+through — create PR, fix CI, address reviews, resolve conflicts — and
+output the merge-ready PR URL.
 
-**Core principle:** PR creation is not the finish line. The finish line is
-CI green + reviews addressed + no conflicts. Automate the entire post-PR
-loop to minimize human intervention.
+## Principal Contradiction
 
-## Anti-Pattern: "PR Created, We're Done"
+**AI's closed verification environment vs the real world's open verification.**
 
-Creating a PR and stopping is shipping half the work. CI will fail, reviewers
-will comment, base branch will drift. If you stop at PR creation, the user
-has to manually handle every round of fixes — exactly the work this skill
-exists to eliminate. Always enter the post-PR loop.
+Implement, review, and QA all ran in a controlled local environment.
+Handoff is where those results meet reality: CI runs in a different
+environment, human reviewers bring a different perspective, and the
+base branch may have drifted. This is the second round of practice —
+taking what was validated internally and subjecting it to external
+verification. The gap between "passed locally" and "accepted by the
+real world" is what handoff exists to close.
 
-**Only stop for:**
-- CI failures after 2 fix rounds exhausted
-- Review comments that require user judgment (architectural decisions, security trade-offs — not style)
-- Quality gate artifacts missing with no owning phase to re-run
-- New standalone artifact detected with no distribution pipeline (Step 1.5)
+## Core Principle
 
-**Never stop for:**
-- On the base branch (auto-create `ship/<task_id>` branch)
-- Stale or missing proof (auto re-verify)
-- CI failures within retry limits (read logs, fix, re-push)
-- Simple review comments (auto-address and push)
-- Merge conflicts (auto-resolve — fetch base, merge, fix conflicts, push)
-- PR body content (auto-generate proof bundle)
-- Branch creation or naming (auto-handle)
-- Uncommitted changes (always include them)
+```
+PR CREATED ≠ DONE.
+CI GREEN + REVIEWS ADDRESSED + NO CONFLICTS = DONE.
+```
 
-## Checklist
-
-1. **Pre-flight** — find task dir, detect base branch, ensure feature branch, commit uncommitted changes
-2. **Distribution pipeline check** — verify release workflow exists if new artifact detected
-3. **Merge base branch** — fetch and merge base so all checks run on merged state
-4. **Check proof freshness** — verify evidence files match current HEAD
-5. **Re-verify if needed** — re-run tests/lint if proof is stale or missing
-6. **Quality gate** — check all required artifacts
-7. **CHANGELOG** — auto-generate entry if CHANGELOG.md exists
-8. **Create PR** — push, create PR with proof bundle
-9. **Sync documentation** — update drifted docs, commit, push
-10. **Wait for CI** — poll checks until complete
-11. **Fix loop** — address CI failures, review comments, merge conflicts (max 2 rounds)
-12. **Report** — PR is merge-ready or escalate
+Creating a PR and stopping is shipping half the work. Always enter the
+post-PR loop. The goal: user says `/handoff`, next thing they see is a
+merge-ready PR URL.
 
 ## Process Flow
 
 ```dot
 digraph handoff {
-    "Pre-flight\n(task, base, branch, uncommitted)" [shape=box];
+    rankdir=TB;
+
+    "Start" [shape=doublecircle];
+    "Pre-flight (task, base, branch, uncommitted)" [shape=box];
     "Distribution pipeline check" [shape=box];
     "Merge base branch" [shape=box];
     "Check proof freshness" [shape=box];
@@ -79,11 +68,13 @@ digraph handoff {
     "Sync documentation" [shape=box];
     "Wait for CI checks" [shape=box];
     "CI + reviews clean?" [shape=diamond];
-    "Fix → verify → push" [shape=box];
+    "Fix → verify → push (Codex MCP)" [shape=box];
+    "Fix rounds exhausted?" [shape=diamond];
     "PR merge-ready" [shape=doublecircle];
-    "BLOCKED\n(escalate to user)" [shape=octagon];
+    "STOP: BLOCKED — escalate to user" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
 
-    "Pre-flight\n(task, base, branch, uncommitted)" -> "Distribution pipeline check";
+    "Start" -> "Pre-flight (task, base, branch, uncommitted)";
+    "Pre-flight (task, base, branch, uncommitted)" -> "Distribution pipeline check";
     "Distribution pipeline check" -> "Merge base branch";
     "Merge base branch" -> "Check proof freshness";
     "Check proof freshness" -> "Proof fresh?";
@@ -92,54 +83,77 @@ digraph handoff {
     "Re-run verification" -> "Quality gate";
     "Quality gate" -> "Gate passed?";
     "Gate passed?" -> "CHANGELOG + Create PR" [label="pass"];
-    "Gate passed?" -> "BLOCKED\n(escalate to user)" [label="fail"];
+    "Gate passed?" -> "STOP: BLOCKED — escalate to user" [label="fail"];
     "CHANGELOG + Create PR" -> "Sync documentation";
     "Sync documentation" -> "Wait for CI checks";
     "Wait for CI checks" -> "CI + reviews clean?";
     "CI + reviews clean?" -> "PR merge-ready" [label="all green"];
-    "CI + reviews clean?" -> "Fix → verify → push" [label="issues found"];
-    "Fix → verify → push" -> "Wait for CI checks" [label="retry (max 2)"];
-    "Fix → verify → push" -> "BLOCKED\n(escalate to user)" [label="retries exhausted"];
+    "CI + reviews clean?" -> "Fix → verify → push (Codex MCP)" [label="issues found"];
+    "Fix → verify → push (Codex MCP)" -> "Fix rounds exhausted?";
+    "Fix rounds exhausted?" -> "Wait for CI checks" [label="no, re-check"];
+    "Fix rounds exhausted?" -> "STOP: BLOCKED — escalate to user" [label="yes, max 2"];
 }
 ```
 
-**The terminal state is PR merge-ready.** Do NOT stop at PR creation.
-The only exit without a merge-ready PR is BLOCKED → escalate to user.
+## Roles
+
+| Role | Who | Why |
+|------|-----|-----|
+| Orchestrator | **You (Claude)** | Coordinate the full handoff flow |
+| CI/review fixer | **Codex** (via MCP) | Write code fixes for CI failures and review comments |
+| Verification | **Claude Agent** (fresh) | Re-run tests/lint after fixes |
+| PR management | **gh CLI** | Create PR, poll CI, read comments |
+
+## Hard Rules
+
+1. Never push without fresh verification evidence. Code changed → re-run tests.
+2. Never force push. Use regular `git push` only.
+3. Never skip the fix loop. PR created is not done.
+4. Never ask for trivial confirmations. Just do it.
+5. After 2 fix rounds → escalate, do not loop forever.
+
+## Quality Gates
+
+| Gate | Condition | Fail action |
+|------|-----------|-------------|
+| Pre-flight → Merge base | Feature branch exists, no uncommitted changes | Auto-create branch, auto-commit |
+| Proof → Quality gate | All proof files match current HEAD | Re-verify |
+| Quality gate → PR | Required artifacts exist and non-empty | Go back to owning phase or escalate |
+| Fix → Push | Tests pass after code changes | Re-run tests, do not push failing code |
+| CI → Merge-ready | All checks green, reviews addressed, no conflicts | Fix loop (max 2) |
 
 ---
 
-## Step 1: Pre-flight
+## Phase 1: Pre-flight
 
-**1. Find task directory:**
+### Step A: Find task directory
 ```
 Bash("REPO_ROOT=$(git rev-parse --show-toplevel) && TASK_DIR=$(find $REPO_ROOT/.ship/tasks -type d -name plan -maxdepth 2 2>/dev/null | head -1 | xargs dirname 2>/dev/null) && echo \"TASK_DIR: $TASK_DIR\"")
 ```
 If no task dir found, create a minimal one from the current branch name.
 
-**2. Detect base branch:**
+### Step B: Detect base branch
 1. `gh pr view --json baseRefName -q .baseRefName` — if PR already exists
 2. `gh repo view --json defaultBranchRef -q .defaultBranchRef.name` — fallback
 3. `main` — last resort
 
-**3. Branch check:**
+### Step C: Branch check
 If on base branch → auto-create feature branch: `git checkout -b ship/<task_id>`
 
-**4. Uncommitted changes:**
+### Step D: Uncommitted changes
 `git status` (never use `-uall`). If uncommitted changes exist, auto-commit:
 ```
 Bash("git add -A && git commit -m 'chore: include uncommitted changes for handoff'")
 ```
 
-**5. Understand the diff:**
+### Step E: Understand the diff
 ```
 Bash("git diff <base>...HEAD --stat && git log <base>..HEAD --oneline")
 ```
 
 Output: `[Ship] Handoff starting — task: <task_id>, base: <branch>, <N> commits, <N> files changed`
 
----
-
-## Step 1.5: Distribution Pipeline Check
+## Phase 2: Distribution Pipeline Check
 
 If the diff introduces a new standalone artifact (CLI binary, library package, tool),
 verify that a distribution pipeline exists.
@@ -155,12 +169,10 @@ verify that a distribution pipeline exists.
 3. No release pipeline + new artifact → AskUserQuestion:
    - A) Add a release workflow now
    - B) Defer — note in PR body
-   - C) Not needed — internal/web-only, existing deployment covers it
+   - C) Not needed — internal/web-only
 4. Release pipeline exists or no new artifact → continue silently.
 
----
-
-## Step 2: Merge Base Branch
+## Phase 3: Merge Base Branch
 
 Fetch and merge the base branch so all subsequent checks run on the merged state:
 ```
@@ -168,13 +180,11 @@ Bash("git fetch origin <base> && git merge origin/<base> --no-edit")
 ```
 
 - Already up to date → continue silently.
-- Merge conflicts → auto-resolve (dispatch subagent if complex). Commit resolved merge.
+- Merge conflicts → auto-resolve (dispatch Codex MCP if complex). Commit resolved merge.
 
 Output: `[Ship] Base branch merged.` or `[Ship] Already up to date.`
 
----
-
-## Step 3: Check Proof Freshness
+## Phase 4: Check Proof Freshness
 
 ```
 Bash("HEAD=$(git rev-parse HEAD) && echo \"HEAD: $HEAD\" && for f in .ship/tasks/<task_id>/proof/current/*.txt; do [ -f \"$f\" ] && echo \"$(basename $f): $(head -1 $f)\"; done")
@@ -182,15 +192,13 @@ Bash("HEAD=$(git rev-parse HEAD) && echo \"HEAD: $HEAD\" && for f in .ship/tasks
 
 Compare each `HEAD_SHA=` against current HEAD.
 
-- All files present + all SHA match → `proof_status: fresh`, skip to Step 5
-- Some files missing or SHA mismatch → `proof_status: stale`, proceed to Step 4
-- No proof dir at all → `proof_status: missing`, proceed to Step 4
+- All files present + all SHA match → `proof_status: fresh`, skip to Phase 6
+- Some files missing or SHA mismatch → `proof_status: stale`, proceed to Phase 5
+- No proof dir at all → `proof_status: missing`, proceed to Phase 5
 
 Output: `[Ship] Proof status: <fresh|stale|missing>`
 
----
-
-## Step 4: Re-verify
+## Phase 5: Re-verify
 
 Only runs if proof is stale or missing. Dispatch verification subagent:
 
@@ -205,11 +213,8 @@ Write evidence files to .ship/tasks/<task_id>/proof/current/:
 - lint.txt — first line: HEAD_SHA=<sha>, then full output
 - coverage.txt — first line: HEAD_SHA=<sha>, then coverage summary (if applicable)
 
-If .ship/tasks/<task_id>/plan/spec.md exists:
-  Run: git diff <base>...HEAD
-  Verify each acceptance criterion against the spec.
-If no spec.md (standalone invocation):
-  Verify tests pass and lint is clean — skip spec compliance.
+If spec.md exists: verify each acceptance criterion against the diff.
+If no spec.md: verify tests pass and lint is clean.
 
 Write results to .ship/tasks/<task_id>/verify.md.",
 subagent_type="general-purpose")
@@ -219,53 +224,49 @@ If verify fails → fix and re-verify (max 2 rounds, then escalate).
 
 Output: `[Ship] Re-verification complete.`
 
----
-
-## Step 5: Quality Gate
+## Phase 6: Quality Gate
 
 Check required artifacts exist and are non-empty:
-- [ ] `plan/spec.md`, `plan/plan.md` — if task dir has `plan/` (skip for standalone invocation)
-- [ ] `review.md` — if task dir has it (skip for standalone invocation)
-- [ ] `verify.md`
-- [ ] `qa.md` — only if code files changed (`git diff <base>...HEAD --name-only | grep -E '\.(go|py|ts|tsx|js|jsx|sh)$'`)
-- [ ] `simplify.md` — only if code files changed (same check)
+- `plan/spec.md`, `plan/plan.md` — if task dir has `plan/` (skip for standalone)
+- `review.md` — if task dir has it (skip for standalone)
+- `verify.md`
+- `qa/qa.md` — only if code files changed
+- `simplify.md` — only if code files changed
 
 If any required artifact missing → go back to the phase that owns it, or escalate.
 
 Output: `[Ship] Quality gate passed.`
 
----
+## Phase 7: CHANGELOG and Create PR
 
-## Step 5.5: CHANGELOG (auto-generate)
+### Step A: CHANGELOG (auto-generate)
 
-**Skip check:** `[ -f CHANGELOG.md ] || echo 'NO_CHANGELOG'`
+`[ -f CHANGELOG.md ] || echo 'NO_CHANGELOG'`
 - No CHANGELOG.md → skip silently.
 
 If CHANGELOG.md exists:
 1. Read header to learn the format
-2. Generate entry from all commits: `git log <base>..HEAD --oneline`
-3. Categorize into sections:
-   - `### Added` — new features
-   - `### Changed` — changes to existing functionality
-   - `### Fixed` — bug fixes
-   - `### Removed` — removed features
-4. Insert after file header, dated today
+2. Generate entry from: `git log <base>..HEAD --oneline`
+3. Categorize: Added / Changed / Fixed / Removed
+4. Insert after header, dated today
 5. Commit: `git add CHANGELOG.md && git commit -m "docs: update CHANGELOG"`
 
-Do NOT ask the user to describe changes. Infer from diff and commit history.
+### Step B: Create PR
 
----
+Build proof bundle from these sources:
 
-## Step 6: Create PR
+| Check | Source file | How to read |
+|-------|------------|-------------|
+| tests | `proof/current/tests.txt` | First line: `HEAD_SHA=<sha>` |
+| lint | `proof/current/lint.txt` | First line: `HEAD_SHA=<sha>` |
+| coverage | `proof/current/coverage.txt` | First line: `HEAD_SHA=<sha>` |
+| verify | `verify.md` | First line: `<!-- VERIFY_RESULT: PASS\|FAIL -->` |
+| qa | `qa/qa.md` | First line: `<!-- QA_RESULT: ... -->` |
 
-**Build proof bundle:**
-For each `.txt` in `proof/current/`, compare `HEAD_SHA=` against current HEAD.
-`proof_status` precedence: stale > partial > collected > skip.
-
-**PR body template:**
+PR body template:
 ```markdown
 ## Summary
-<bullet points inferred from git log <base>..HEAD --oneline and diff>
+<bullet points from git log and diff>
 
 ## Ship Proof Bundle
 HEAD: `<sha>`
@@ -275,67 +276,39 @@ HEAD: `<sha>`
 | tests | PASS/FAIL | Yes/Stale |
 | lint | PASS/WARN | Yes/Stale |
 | coverage | PASS/SKIP | Yes/Stale |
+| verify | PASS/FAIL | Yes/Stale |
 | qa | PASS/FAIL/SKIP | Yes/Stale |
-| spec | PASS/FAIL | Yes/Stale |
-
-## Test Coverage
-<coverage summary from proof/current/coverage.txt, or "All new code paths have test coverage.">
-
-## Review Findings
-<summary from review.md — N issues, M fixed, K info-only. Or "No issues found.">
 
 ## Test Plan
 - [x] All tests pass (<N> tests)
 - [x] Lint clean
 - [x] Spec compliance verified
-
 ```
-If any evidence stale, append: `⚠ Evidence stale — re-run verify to refresh.`
 
-Do NOT ask the user to write the summary or test plan. Infer everything from
-diff, commit history, and proof artifacts.
-
-**Push and create:**
+Push and create:
 1. `git push -u origin HEAD`
-2. `gh pr create --title "<title>" --body "<proof bundle>"` (if `gh` available)
+2. `gh pr create --title "<title>" --body "<proof bundle>"`
 3. If PR already exists: `gh pr comment` with updated proof table
 
 Output: `[Ship] PR created: <url>`
 
----
+## Phase 8: Sync Documentation
 
-## Step 6.5: Sync Documentation
-
-After PR is created, auto-sync project documentation so docs never drift
-from code. Good docs = good AI harness for future sessions.
+After PR is created, auto-sync project documentation:
 
 1. Read the diff: `git diff <base>...HEAD --name-only`
-2. For each changed source file, check if related docs may be stale:
-   - README.md — setup, run, config instructions
-   - AGENTS.md / CLAUDE.md — architecture, task routing, conventions
-   - docs/ — design docs, API references
-3. If any doc needs updating → update, commit, push:
-   ```
-   Bash("git add -A && git commit -m 'docs: sync documentation with shipped changes' && git push")
-   ```
-4. If all docs are current → skip silently.
+2. Check if related docs may be stale (README.md, AGENTS.md, CLAUDE.md, docs/)
+3. If any doc needs updating → update, commit, push
+4. If all docs current → skip silently
 
-This step is automatic. Do not ask for confirmation.
-
----
-
-## Step 7: Wait for CI
+## Phase 9: Wait for CI
 
 Poll CI checks until all complete:
 ```
 Bash("gh pr checks --watch")
 ```
 
-If `gh pr checks --watch` is not available, poll manually:
-```
-Bash("gh pr checks")
-```
-Repeat every 60 seconds until no checks are `pending` (max 45 minutes).
+If `--watch` not available, poll with `gh pr checks` every 60s (max 45 min).
 
 Also check for review comments:
 ```
@@ -344,44 +317,85 @@ Bash("gh pr view --json reviewRequests,reviews,comments --jq '{reviews: [.review
 
 Output: `[Ship] CI complete — <N> passed, <N> failed. <N> review comments.`
 
----
-
-## Step 8: Fix Loop
+## Phase 10: Fix Loop
 
 If CI failures, review comments, or merge conflicts exist, fix them.
 Max 2 rounds — after that, escalate.
 
-**CI failures:**
+### Step A: CI failures
+
 1. Read failed check logs: `gh pr checks` to identify failures
 2. Read CI log output: `gh run view <run_id> --log-failed`
-3. Dispatch fix subagent with failure context
-4. Commit fix
+3. Dispatch fix via Codex MCP:
+   ```
+   mcp__codex__codex({
+     prompt: "Fix the following CI failures.
+       ## CI Failure Log
+       <failed check output>
+       ## Rules
+       - Fix ONLY the CI failures. Do not refactor.
+       - Run tests after fixing: <TEST_CMD>
+       - Commit with conventional commits.",
+     sandbox: "workspace-write",
+     approval-policy: "never",
+     cwd: <repo root>
+   })
+   ```
 
-**Review comments:**
+### Step B: Review comments
+
 1. Read comments: `gh pr view --comments`
-2. Address each actionable comment (ignore bot/automated comments)
-3. Commit fixes
-4. Minimize resolved comments
+2. Classify each comment:
+   - **Mechanical** (typo, naming, missing test, lint) → dispatch Codex MCP to fix
+   - **Judgment** (architecture, security trade-off, design choice) → escalate to user
+   - **Bot/automated** → ignore
+3. Commit mechanical fixes
+4. If any judgment comments exist → escalate with comment summary
 
-**Merge conflicts:**
-1. Fetch and merge base: `git fetch origin <base> && git merge origin/<base>`
-2. Auto-resolve all conflicts (dispatch subagent if complex)
+The distinction matters: CI failures are environment gaps (auto-fixable).
+Review comments may reflect human perspective that AI lacks (not always
+auto-fixable). Blindly "fixing" a design concern can make things worse.
+
+### Step C: Merge conflicts
+
+1. `git fetch origin <base> && git merge origin/<base>`
+2. Auto-resolve conflicts (dispatch Codex MCP if complex)
 3. Commit resolved merge
 
-**Verification gate — BEFORE every push:**
+### Verification gate — BEFORE every push
+
 If ANY code changed during this fix round, re-run tests before pushing.
 - "Should work now" → RUN IT.
-- "I'm confident" → Confidence is not evidence.
 - "It's a trivial change" → Trivial changes break production.
-If tests fail → fix and re-verify. Do NOT push with failing tests.
 
-After verification passes → `git push` → go back to Step 7 (wait for CI).
+After verification passes → `git push` → go back to Phase 9.
 
-Output per round: `[Ship] Fix round <i>/2 — <what was fixed>. Tests pass. Re-checking CI...`
+Output: `[Ship] Fix round <i>/2 — <what was fixed>. Tests pass. Re-checking CI...`
 
 ---
 
-## Step 9: Report
+## Artifacts
+
+```text
+.ship/tasks/<task_id>/
+  proof/current/
+    tests.txt      — test output with HEAD_SHA
+    lint.txt       — lint output with HEAD_SHA
+    coverage.txt   — coverage summary with HEAD_SHA
+  verify.md        — verification report
+```
+
+## Retry Limits
+
+| Trigger | Fix path | Max |
+|---------|----------|-----|
+| CI failure | read logs → fix → push → re-check | 2 |
+| Review comments | read → fix → push → re-check | 2 |
+| Merge conflicts | fetch base → resolve → push | 2 |
+| Proof stale/missing | re-run verification | 2 |
+| Quality gate fail | go back to owning phase | 1 |
+
+## Completion
 
 **PR merge-ready:**
 ```
@@ -400,43 +414,25 @@ RECOMMENDATION: <what user should do>
 PR: <url>
 ```
 
----
+### Only stop for
+- CI failures after 2 fix rounds exhausted
+- Review comments requiring user judgment (architecture, security — not style)
+- Quality gate artifacts missing with no owning phase to re-run
 
-## Reference
+### Never stop for
+- On the base branch (auto-create feature branch)
+- Stale or missing proof (auto re-verify)
+- CI failures within retry limits (read logs, fix, re-push)
+- Simple review comments (auto-address and push)
+- Merge conflicts (auto-resolve)
 
-### Retry Limits
-
-| Trigger | Fix path | Max |
-|---------|----------|-----|
-| CI failure | read logs → fix → push → re-check | 2 |
-| Review comments | read → fix → push → re-check | 2 |
-| Merge conflicts | fetch base → resolve → push | 2 |
-| Proof stale/missing | re-run verification | 2 |
-| Quality gate fail | go back to owning phase | 1 |
-
-After limit → escalate with BLOCKED report.
-
-### Progress Reporting
-
-Every status line starts with `[Ship]`. Include round counts when iterating.
-
-```
-[Ship] Handoff starting — task: add-dark-mode, base: main
-[Ship] Proof status: fresh
-[Ship] Quality gate passed.
-[Ship] PR created: https://github.com/...
-[Ship] CI complete — 3 passed, 1 failed. 0 review comments.
-[Ship] Fix round 1/2 — fixed lint failure in handler.go. Re-checking CI...
-[Ship] CI complete — 4 passed, 0 failed. 2 review comments.
-[Ship] Fix round 2/2 — addressed 2 review comments. Re-checking CI...
-[Ship] PR merge-ready: https://github.com/...
-```
-
-### Important Rules
-
-- **Never push without fresh verification evidence.** If code changed, re-run tests first.
-- **Never force push.** Use regular `git push` only.
-- **Never skip the fix loop.** PR created ≠ done. CI green + reviews addressed = done.
-- **Never ask for trivial confirmations.** "Ready to push?" "Create PR?" — just do it.
-- **Date format in CHANGELOG:** `YYYY-MM-DD`
-- **The goal is: user says `/handoff`, next thing they see is a merge-ready PR URL.**
+<Bad>
+- Stopping at PR creation without entering the fix loop
+- Pushing without re-running tests after code changes
+- Force pushing
+- Asking "Ready to push?" or "Create PR?" — just do it
+- Skipping the fix loop because "CI will probably pass"
+- Manually reading/fixing CI failures instead of dispatching Codex
+- Looping more than 2 rounds without escalating
+- Leaving quality gate artifacts missing
+</Bad>

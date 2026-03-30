@@ -1,6 +1,6 @@
 # Module: Install Missing Tools
 
-Purpose: Install tools that Phase 1 marked as `missing`. Skip `ready` and `broken`. After install, update `policy.json` and `AGENTS.md`.
+Purpose: Install tools that Phase 1 marked as `missing`. Skip `ready` and `broken`. Do NOT update `ship.policy.json` or `AGENTS.md` here — Phase 4 Core owns those files.
 
 ## Process
 
@@ -18,33 +18,13 @@ Purpose: Install tools that Phase 1 marked as `missing`. Skip `ready` and `broke
 - Skip tools already marked `ready`.
 - Skip tools marked `broken`; those need manual repair, not automatic install.
 
-### 2. Update Policy
+### 2. Record newly installed tools
 
-- After successful installs, update `.ship/ship.policy.json`.
-- Use `jq` to add new `quality.pre_commit` entries for the newly installed tools.
-- Use the actual detected command, not the package name and not a hardcoded default if the repo uses a different invocation.
-- Preserve existing entries and avoid duplicates.
+After successful installs, record the newly available tools and their
+commands in working memory. Phase 4 Core will use this to populate
+`ship.policy.json` and `AGENTS.md`. Do NOT write to those files here.
 
-Example:
-
-```bash
-tmp=$(mktemp) && \
-jq '.quality.pre_commit += [{"command": "ruff check .", "name": "linter"}, {"command": "ruff format --check .", "name": "formatter"}]' \
-  .ship/ship.policy.json > "$tmp" && \
-mv "$tmp" .ship/ship.policy.json
-```
-
-**Each entry MUST be an object** with `command` and `name` keys. Do NOT use plain strings.
-The `name` should be a human-readable category (e.g. "linter", "formatter", "type checker", "tests").
-
-### 3. Update AGENTS.md
-
-- Update the `Commands` table in `AGENTS.md` to include the newly installed tools.
-- Use the Edit tool so only the relevant command rows change.
-- Add real commands the repo can run, for example lint, format, typecheck, or test commands that now exist because the tool was installed.
-- Do not rewrite unrelated sections.
-
-### 4. Update .gitignore
+### 3. Update .gitignore
 
 - Add install artifacts only for the languages involved in this repo.
 - Only add entries that are not already present.
