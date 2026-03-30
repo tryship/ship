@@ -1,7 +1,7 @@
 ---
 name: setup
 version: 1.0.0
-description: Bootstrap a repo for AI-ready development with Ship enforcement. Detects languages and tooling across 14 languages, generates security policy (ship.policy.json) and AI handbook (AGENTS.md). Optional modules install missing tools, configure CI/CD, and set up AI code review. Use when: setup, init, bootstrap, make repo AI-ready.
+description: Bootstrap a repo for AI-ready development with Ship enforcement. Detects languages and tooling across 14 languages, generates security policy (ship.policy.json) and AI handbook (AGENTS.md). Optional modules install missing tools, configure CI/CD, and set up AI code review. Use when setup, init, bootstrap, make repo AI-ready.
 allowed-tools:
   - Bash
   - Read
