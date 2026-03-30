@@ -1,5 +1,5 @@
 {
-  "name": "ship-marketplace",
+  "name": "ship.tech",
   "description": "Marketplace for the Ship agent harness plugin",
   "owner": {
     "name": "Ship",
@@ -9,7 +9,7 @@
     {
       "name": "ship",
       "description": "A comprehensive agent harness for end-to-end, large-scale software product development",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "source": "./"
     }
   ]
