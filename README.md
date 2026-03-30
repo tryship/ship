@@ -83,6 +83,14 @@ Then install the plugin:
 /plugin install ship@ship
 ```
 
+### Codex
+
+Tell Codex:
+
+```
+Fetch and follow instructions from https://raw.githubusercontent.com/tryship/ship/refs/heads/main/.codex/INSTALL.md
+```
+
 ### Local Development
 
 Clone the repo and point Claude Code at it:
