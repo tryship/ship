@@ -31,9 +31,7 @@ You describe what you want to build. Ship handles the constraints that make AI o
 
 ## The Basic Workflow
 
-**setup-harness** — Reads the codebase to discover coding conventions linters can't cover. Generates AGENTS.md (prevention) and CONVENTIONS.md (enforcement). Registers a semantic check hook.
-
-**setup-infra** — Bootstrap repo infrastructure: detect languages, install missing tools, configure CI/CD, pre-commit hooks, and AI code review.
+**setup** — Bootstrap repo infrastructure (detect languages, install missing tools, configure CI/CD, pre-commit hooks) and discover coding conventions linters can't cover. Generates AGENTS.md (prevention) and CONVENTIONS.md (enforcement). Registers a semantic check hook.
 
 **plan** — Reads the codebase yourself (no delegation), traces call chains and integration surfaces, writes spec + plan with file:line references. Hands it to an independent Codex challenger for 2 rounds of adversarial review. You see the plan only after it survives falsification.
 
@@ -59,20 +57,17 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 
 | Skill | Description |
 |-------|-------------|
-| `/ship:auto` | Full 9-phase coding pipeline: design → implement → review → verify → QA → simplify → PR |
-| `/ship:plan` | Adversarial pre-coding planning with Codex challenger (2-round convergence) |
-| `/ship:implement` | Execute implementation stories from a plan — Codex implements, Claude reviews |
-| `/ship:debug` | *(Coming Soon)* Root cause investigation and targeted repair for unknown failures |
-| `/ship:refactor` | *(Coming Soon)* Behavior-preserving code cleanup with baseline comparison |
-| `/ship:qa` | Independent QA evaluation: functional, exploratory, and health testing with L1 evidence |
-| `/ship:handoff` | PR creation with proof bundle, CI fix loop, and review comment resolution |
-| `/ship:setup-harness` | Discover conventions, generate AGENTS.md + CONVENTIONS.md, register enforcement hook |
-| `/ship:setup-infra` | Bootstrap repo infrastructure — install tools, CI/CD, pre-commit hooks |
-| `/ship:harness` | Activate convention enforcement hook |
-| `/ship:unharness` | Deactivate convention enforcement hook, preserve CONVENTIONS.md |
-| `/ship:review` | *(Coming Soon)* Review code for bugs, security issues, and best practices |
-| `/ship:test` | Write and run tests for code changes |
-| `/ship:clean` | *(Coming Soon)* Clean up dead code, unused imports, and unnecessary complexity |
+| `/ship:ship-auto` | Full 9-phase coding pipeline: design → implement → review → verify → QA → simplify → PR |
+| `/ship:ship-plan` | Adversarial pre-coding planning with Codex challenger (2-round convergence) |
+| `/ship:ship-dev` | Execute implementation stories from a plan — Codex implements, Claude reviews |
+| `/ship:ship-debug` | *(Coming Soon)* Root cause investigation and targeted repair for unknown failures |
+| `/ship:ship-refactor` | *(Coming Soon)* Behavior-preserving code cleanup with baseline comparison |
+| `/ship:ship-qa` | Independent QA evaluation: functional, exploratory, and health testing with L1 evidence |
+| `/ship:ship-handoff` | PR creation with proof bundle, CI fix loop, and review comment resolution |
+| `/ship:ship-setup` | Bootstrap infra + discover conventions, generate AGENTS.md + CONVENTIONS.md, register enforcement hook |
+| `/ship:ship-review` | *(Coming Soon)* Review code for bugs, security issues, and best practices |
+| `/ship:ship-test` | Write and run tests for code changes |
+| `/ship:ship-clean` | *(Coming Soon)* Clean up dead code, unused imports, and unnecessary complexity |
 
 ## Installation
 

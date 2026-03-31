@@ -1,5 +1,5 @@
 ---
-name: qa
+name: ship-qa
 version: 2.1.0
 description: >
   Independent QA: starts the application, verifies spec criteria against

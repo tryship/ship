@@ -1,5 +1,5 @@
 ---
-name: plan
+name: ship-plan
 version: 0.3.0
 description: "Adversarial pre-coding planning: you investigate the codebase, write a plan, then Codex independently produces its own plan. Differences are resolved by code evidence, and a blind execution drill verifies implementability."
 allowed-tools:
@@ -383,7 +383,7 @@ Use a **new** MCP session, not the Plan B thread.
 
 ### Detecting invocation mode
 
-- **Standalone** (`/plan`): the user invoked plan directly.
+- **Standalone** (`/ship-plan`): the user invoked plan directly.
 - **From ship:auto**: the calling prompt contains a task_id.
   Ship:auto is waiting for artifacts to exist.
 
@@ -403,7 +403,7 @@ Use a **new** MCP session, not the Plan B thread.
 - diff-report.md: .ship/tasks/<task_id>/plan/diff-report.md
 
 ## What's next?
-1. **Implement now** — run /implement to execute this plan
+1. **Implement now** — run /ship-dev to execute this plan
 2. **Review the plan** — read the artifacts and give feedback
 3. **Re-plan** — discard this plan and start over
 ```

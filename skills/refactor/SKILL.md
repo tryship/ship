@@ -1,5 +1,5 @@
 ---
-name: refactor
+name: ship-refactor
 version: 0.4.0
 description: >
   Diagnose structural misalignment, write a refactor spec, then hand off
@@ -301,7 +301,7 @@ Output: `[Refactor] Spec written. Handing off to auto...`
 ## Phase 5: Hand Off to Auto
 
 ```
-Agent(prompt="You MUST call Skill('auto') as your first and only action.
+Agent(prompt="You MUST call Skill('ship-auto') as your first and only action.
 Task description: Refactor — <1-line crack summary>.
 task_id: <task_id>
 task_dir: .ship/tasks/<task_id>

@@ -1,5 +1,5 @@
 ---
-name: implement
+name: ship-dev
 version: 0.3.0
 description: Execute implementation stories from a plan. Codex implements each story via MCP, Claude reviews spec compliance and code correctness. Stories run sequentially; review must pass before the next story starts.
 allowed-tools:

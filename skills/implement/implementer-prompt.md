@@ -1,6 +1,6 @@
 # Implementer — Codex Prompt
 
-Used in Phase 2 Step A of `/implement`. Codex implements one story.
+Used in Phase 2 Step A of `/ship-dev`. Codex implements one story.
 
 ## MCP Call
 
