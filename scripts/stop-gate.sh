@@ -1,4 +1,5 @@
 #!/bin/bash
+set -u
 # Ship quality gate — prevents the orchestrator from exiting until all
 # pipeline phases are complete. Pure artifact-driven: artifact exists =
 # phase ran, missing artifact = phase skipped.

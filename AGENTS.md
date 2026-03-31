@@ -13,20 +13,22 @@
 
 | Directory | Contents | Purpose |
 |-----------|----------|---------|
-| `scripts/` | Shell scripts | Workflow hooks (stop-gate) and utilities (task-id) |
+| `scripts/` | Shell scripts | Workflow hooks (stop-gate) and utilities (task-id, check-conventions) |
 | `hooks/` | `hooks.json` | Plugin-level hook registration (Stop only) |
 | `skills/` | Skill dirs | Claude Code slash commands (/ship:auto, /ship:plan, etc.) |
-| `skills/setup/templates/` | Config templates | CI, Dependabot, labeler, AGENTS.md template |
+| `skills/setup-harness/` | Harness skill | Convention discovery, AGENTS.md + CONVENTIONS.md generation |
+| `skills/setup-infra/` | Infra skill | Tool install, CI/CD, pre-commit configuration |
 | `.claude-plugin/` | `plugin.json` | Plugin metadata for Claude Code marketplace |
+| `.mcp.json` | MCP config | Codex MCP server registration |
 
 ## Architecture
 
 Two independent layers:
 
-**Harness layer (opt-in via /ship:setup):** AI analyzes the project and generates enforceable rules.
-- Structural rules (`.ship/rules/structural/*.sh`) — deterministic checks, deny on violation
-- Semantic rules (`.ship/rules/semantic/*.md`) — AI-judged convention checks, feedback only
-- Registered as hooks in `.claude/settings.json` (project-level)
+**Harness layer (opt-in via /ship:setup-harness):** AI analyzes the project and generates enforceable conventions.
+- Generates `AGENTS.md` (prevention — AI reads at session start)
+- Generates `.ship/rules/semantic/CONVENTIONS.md` (enforcement — checked on every Write/Edit)
+- Enforcement via command hook: `scripts/check-conventions.sh` calls `claude -p` (Haiku) to judge code against CONVENTIONS.md
 - Toggled via `/ship:harness` and `/ship:unharness`
 
 **Workflow layer (opt-in via /ship:auto):** Fires only during ship-coding sessions.
@@ -38,7 +40,6 @@ Two independent layers:
 - JSON parsing: `jq` only (no yq, no Python yaml)
 - Hook input: always `INPUT=$(cat)` then extract fields with `jq -r`
 - Hook output: `jq -n` to produce response JSON
-- Audit logs: `.ship/audit/YYYY-MM-DD.jsonl` (append-only)
 - Use Conventional Commits: `feat(harness):`, `fix(harness):`, `feat(plugin):`
 
 ## Boundaries
@@ -53,7 +54,6 @@ Two independent layers:
 - Use `eval` on config values (use `bash -c` instead)
 - Use `\s` in `grep -E` (not POSIX on macOS; use `[[:space:]]`)
 - Depend on `yq` or PyYAML (JSON-only, parsed with `jq`)
-- Hardcode phase requirements in stop-gate (read from rules.json workflow.phases)
 
 ## Gotchas
 

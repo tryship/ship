@@ -351,8 +351,14 @@ fully gitignored, change to:
 
 ### Step E: Commit
 
+Stage AGENTS.md, CONVENTIONS.md, .gitignore, and the chosen settings
+file (if project shared was selected in Step C). Skip settings file
+if user chose local, global, or skip.
+
 ```bash
-git add AGENTS.md .ship/rules/semantic/CONVENTIONS.md .claude/settings.json .gitignore
+git add AGENTS.md .ship/rules/semantic/CONVENTIONS.md .gitignore
+# Only if project shared hook was chosen:
+git add .claude/settings.json
 git commit -m "feat(harness): generate AGENTS.md and coding conventions
 
 AGENTS.md: AI handbook with commands, repo map, and conventions.

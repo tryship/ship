@@ -1,11 +1,11 @@
 ---
 name: unharness
-version: 1.0.0
+version: 2.0.0
 description: >
-  Deactivate AI harness enforcement. Removes structural and semantic
-  rule hooks from .claude/settings.json. Rule files in .ship/rules/
-  are preserved for re-activation. Use when: unharness, deactivate
-  rules, disable enforcement, turn off harness.
+  Deactivate AI harness enforcement. Removes the convention check
+  hook from .claude/settings.json. CONVENTIONS.md is preserved for
+  re-activation. Use when: unharness, deactivate rules, disable
+  enforcement, turn off harness.
 allowed-tools:
   - Read
   - Edit
@@ -15,14 +15,14 @@ allowed-tools:
 # Ship: Unharness
 
 Deactivate the project's coding convention enforcement by removing
-hook entries from `.claude/settings.json`.
+the hook entry from `.claude/settings.json`.
 
 ## Principal Contradiction
 
 **Deactivation must be clean yet non-destructive.**
 
 Removing hooks must not break other hooks in settings.json, and must
-preserve rule files so the user can re-activate with `/ship:harness`.
+preserve CONVENTIONS.md so the user can re-activate with `/ship:harness`.
 
 ## Process
 
@@ -31,27 +31,26 @@ preserve rule files so the user can re-activate with `/ship:harness`.
 
 2. Find and remove PreToolUse hook entries that match harness hooks.
    Identify by ANY of:
-   - `statusMessage` containing "structural rules" or "coding conventions"
-   - `command` containing `.ship/rules/`
-   - `prompt` containing `.ship/rules/rules.json`
+   - `command` containing `check-conventions.sh`
+   - `statusMessage` containing "coding conventions"
 
 3. Preserve ALL other hooks in settings.json.
    If the PreToolUse array becomes empty after removal, remove the
    PreToolUse key. If the hooks object becomes empty, remove it.
 
-4. Do NOT delete `.ship/rules/` — rules are preserved for re-activation.
+4. Do NOT delete `.ship/rules/` — CONVENTIONS.md is preserved for re-activation.
 
-5. Confirm: "Harness deactivated. Rules preserved in .ship/rules/."
+5. Confirm: "Harness deactivated. CONVENTIONS.md preserved in .ship/rules/semantic/."
 
 ## Hard Rules
 
 1. Never delete rule files. This skill only removes hooks.
-2. Never modify rules.json or any rule scripts/docs.
+2. Never modify CONVENTIONS.md or AGENTS.md.
 3. Preserve all non-harness hooks exactly as they were.
 
 <Bad>
-- Deleting .ship/rules/ or any rule files
+- Deleting .ship/rules/ or CONVENTIONS.md
 - Removing non-harness hooks from settings.json
-- Modifying rule files during deactivation
+- Modifying CONVENTIONS.md during deactivation
 - Deleting settings.json entirely instead of surgically removing entries
 </Bad>

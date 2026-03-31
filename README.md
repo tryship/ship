@@ -12,7 +12,7 @@ Ship is a harness, not a copilot. It doesn't help AI write code — it constrain
 
 **Every phase is an isolated subagent.** The reviewer has never seen the implementation context. The QA evaluator is contractually forbidden from reading the review or verification artifacts — it can only look at the spec and the running application. Fresh context per phase means no accumulated bias, no rubber-stamping.
 
-**State lives on disk, not in memory.** There are no state files. The current phase is derived from which artifacts exist: `plan/spec.md` present → design done. `review.md` filled → review done. The stop-gate hook checks these artifacts before allowing the session to exit — if any phase was skipped or incomplete, you're sent back.
+**State lives on disk, not in memory.** The current phase is derived from which artifacts exist: `plan/spec.md` present → design done. `review.md` filled → review done. The stop-gate hook checks these artifacts before allowing the session to exit — if any phase was skipped or incomplete, you're sent back.
 
 **Plans are adversarially tested.** The planner reads your codebase (tracing call chains, mapping integration surfaces, grepping for existing defenses), writes a spec and plan, then hands it to an independent Codex challenger. The challenger produces falsification cards — code-grounded objections with file paths and snippets. The planner must respond with code evidence, not hand-waving. Two rounds of this before you see anything.
 
@@ -31,7 +31,9 @@ You describe what you want to build. Ship handles the constraints that make AI o
 
 ## The Basic Workflow
 
-**setup** — Bootstrap a repo for AI-ready development with Ship enforcement. Detects languages and tooling across 14 languages, generates AI-driven coding convention rules (.ship/rules/) and AI handbook (AGENTS.md). Optional modules install missing tools, configure CI/CD, and set up AI code review.
+**setup-harness** — Reads the codebase to discover coding conventions linters can't cover. Generates AGENTS.md (prevention) and CONVENTIONS.md (enforcement). Registers a semantic check hook.
+
+**setup-infra** — Bootstrap repo infrastructure: detect languages, install missing tools, configure CI/CD, pre-commit hooks, and AI code review.
 
 **plan** — Reads the codebase yourself (no delegation), traces call chains and integration surfaces, writes spec + plan with file:line references. Hands it to an independent Codex challenger for 2 rounds of adversarial review. You see the plan only after it survives falsification.
 
@@ -64,9 +66,10 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 | `/ship:refactor` | *(Coming Soon)* Behavior-preserving code cleanup with baseline comparison |
 | `/ship:qa` | Independent QA evaluation: functional, exploratory, and health testing with L1 evidence |
 | `/ship:handoff` | PR creation with proof bundle, CI fix loop, and review comment resolution |
-| `/ship:setup` | Bootstrap a repo for AI-ready development — detects 14 languages, generates .ship/rules/ and AGENTS.md |
-| `/ship:harness` | Activate AI harness enforcement — registers rule hooks in .claude/settings.json |
-| `/ship:unharness` | Deactivate AI harness enforcement — removes rule hooks, preserves rule files |
+| `/ship:setup-harness` | Discover conventions, generate AGENTS.md + CONVENTIONS.md, register enforcement hook |
+| `/ship:setup-infra` | Bootstrap repo infrastructure — install tools, CI/CD, pre-commit hooks |
+| `/ship:harness` | Activate convention enforcement hook |
+| `/ship:unharness` | Deactivate convention enforcement hook, preserve CONVENTIONS.md |
 | `/ship:review` | *(Coming Soon)* Review code for bugs, security issues, and best practices |
 | `/ship:test` | Write and run tests for code changes |
 | `/ship:clean` | *(Coming Soon)* Clean up dead code, unused imports, and unnecessary complexity |
