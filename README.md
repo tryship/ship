@@ -109,7 +109,7 @@ Open a fresh session and give it a task that would trigger a skill — for examp
 
 Ship is built on ideas from:
 
-- [Superpowers](https://github.com/anthropics/superpowers) — Anthropic's official skill library for Claude Code
+- [Superpowers](https://github.com/obra/superpowers/tree/main) — Jesse Vincent's skill library for Claude Code
 - [gstack](https://github.com/garrytan/gstack) — Garry Tan's full-stack AI development harness
 
 ## Links
