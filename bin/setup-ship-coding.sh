@@ -23,7 +23,8 @@ if [ -z "$TASK_DESCRIPTION" ]; then
 fi
 
 # ── 1. GENERATE TASK ID + DIRECTORIES ─────────────────────────
-TASK_ID=$(echo "$TASK_DESCRIPTION" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-60)
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+TASK_ID=$(bash "$SCRIPT_DIR/task-id.sh" "$TASK_DESCRIPTION")
 mkdir -p ".ship/tasks/$TASK_ID/plan"
 
 # ── 2. CREATE STATE FILE ──────────────────────────────────────

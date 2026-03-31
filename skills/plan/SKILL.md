@@ -130,10 +130,10 @@ Defects are caught at source, never passed downstream.
 
 1. If invoked by ship:auto, the task_id is provided and
    `.ship/tasks/<task_id>/plan/` already exists.
-2. If invoked standalone, generate `task_id` as a short slug from the task
-   description (e.g., "fix login timeout" → `fix-login-timeout`).
-   ```
-   mkdir -p .ship/tasks/<task_id>/plan
+2. If invoked standalone, generate `task_id` using the shared script:
+   ```bash
+   TASK_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/task-id.sh "<description>")
+   mkdir -p .ship/tasks/$TASK_ID/plan
    ```
 
 ### Existing spec.md detection

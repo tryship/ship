@@ -105,9 +105,9 @@ digraph refactor {
 
 ## Phase 1: Setup
 
-Generate task_id from the user's description:
+Generate task_id:
 ```bash
-TASK_ID=$(echo "<description>" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//;s/-$//' | cut -c1-60)
+TASK_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/bin/task-id.sh "<description>")
 mkdir -p .ship/tasks/$TASK_ID/plan
 ```
 
