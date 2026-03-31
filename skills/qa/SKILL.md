@@ -136,12 +136,9 @@ Resolve parameters:
 | Spec path | auto-detect | Caller provides, or search `<task_dir>/plan/spec.md`, or user's request |
 | Evidence dir | `<task_dir>/qa/` | All evidence stored here |
 
-```
-Bash("mkdir -p .ship/tasks/<task_id>/qa")
-```
-
 All evidence (screenshots, curl outputs, logs, verdicts) goes to
-`.ship/tasks/<task_id>/qa/`. No temporary directories.
+`.ship/tasks/<task_id>/qa/`. The Write tool creates directories
+automatically — no mkdir needed.
 
 ### Step A: Detect project runtime and framework
 

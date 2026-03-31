@@ -203,12 +203,8 @@ Output: `[Ship] Proof status: <fresh|stale|missing>`
 Only runs if proof is stale or missing. Dispatch verification subagent:
 
 ```
-Bash("rm -rf .ship/tasks/<task_id>/proof/current && mkdir -p .ship/tasks/<task_id>/proof/current")
-```
-
-```
 Agent(prompt="Run tests, linter, and type checker in <repo path>.
-Write evidence files to .ship/tasks/<task_id>/proof/current/:
+Write evidence files to .ship/tasks/<task_id>/proof/current/ (overwrite if they exist):
 - tests.txt — first line: HEAD_SHA=<sha>, then full output
 - lint.txt — first line: HEAD_SHA=<sha>, then full output
 - coverage.txt — first line: HEAD_SHA=<sha>, then coverage summary (if applicable)

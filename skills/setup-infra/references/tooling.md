@@ -1,6 +1,6 @@
 # Module: Install Missing Tools
 
-Purpose: Install tools that Phase 1 marked as `missing`. Skip `ready` and `broken`. Do NOT update `ship.policy.json` or `AGENTS.md` here — Phase 4 Core owns those files.
+Purpose: Install tools that Phase 1 marked as `missing`. Skip `ready` and `broken`.
 
 ## Process
 
@@ -21,8 +21,7 @@ Purpose: Install tools that Phase 1 marked as `missing`. Skip `ready` and `broke
 ### 2. Record newly installed tools
 
 After successful installs, record the newly available tools and their
-commands in working memory. Phase 4 Core will use this to populate
-`ship.policy.json` and `AGENTS.md`. Do NOT write to those files here.
+commands in working memory for the completion summary.
 
 ### 3. Update .gitignore
 

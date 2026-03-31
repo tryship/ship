@@ -143,7 +143,7 @@ Bash("mkdir -p .ship/tasks/<task_id>")
 
 Detect languages, lint config, test command. Record `TASK_ID` and `TASK_DIR`.
 
-- If `.ship/ship.policy.json` is missing: suggest `/setup` but do not block.
+- If `.ship/rules/semantic/CONVENTIONS.md` is missing: suggest `/ship:setup-harness` but do not block.
 
 Output: `[Ship] Task "<title>" created. Starting design phase...`
 
@@ -172,11 +172,15 @@ Bash("[ -s .ship/tasks/<task_id>/plan/spec.md ] && [ -s .ship/tasks/<task_id>/pl
 ```
 If `PLAN_FOUND`: skip to Phase 3.
 
+If `NO_PLAN`: dispatch plan. Plan will detect whether spec.md already
+exists (e.g. from a prior refactor diagnosis) and preserve it, producing
+only plan.md. If spec.md does not exist, plan produces both.
+
 ```
 Agent(prompt="Call Skill('plan'). Params: repo=<repo>, task=<description>, task_id=<id>, artifact_dir=.ship/tasks/<task_id>/plan/")
 ```
 
-**After return:** verify artifacts exist. If incomplete → escalate BLOCKED.
+**After return:** verify both `spec.md` and `plan.md` exist and are non-empty. If incomplete → escalate BLOCKED.
 
 Extract stories from `plan/plan.md`. Output: `[Ship] Design complete — <N> stories extracted.`
 

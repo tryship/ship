@@ -1,4 +1,5 @@
 #!/bin/bash
+set -u
 # Ship quality gate — prevents the orchestrator from exiting until all
 # pipeline phases are complete. Pure artifact-driven: artifact exists =
 # phase ran, missing artifact = phase skipped.
@@ -53,24 +54,14 @@ else
   TASK_DIR="$REPO_ROOT/$TASK_DIR"
 fi
 
-# ── READ POLICY ──────────────────────────────────────────────
-# Read workflow phase requirements from policy
-POLICY_JSON="$REPO_ROOT/.ship/ship.policy.json"
-
-# Defaults: all phases required (backward compatible)
+# ── WORKFLOW CONFIG ──────────────────────────────────────────
+# All phases required by default. QA and simplify are optional
+# because they depend on whether code changes were made.
 PLAN_REQUIRED="required"
 REVIEW_REQUIRED="required"
 VERIFY_REQUIRED="required"
-QA_REQUIRED="required"
-SIMPLIFY_REQUIRED="required"
-
-if [ -f "$POLICY_JSON" ]; then
-  PLAN_REQUIRED=$(jq -r '.workflow.phases.plan // "required"' "$POLICY_JSON")
-  REVIEW_REQUIRED=$(jq -r '.workflow.phases.review // "required"' "$POLICY_JSON")
-  VERIFY_REQUIRED=$(jq -r '.workflow.phases.verify // "required"' "$POLICY_JSON")
-  QA_REQUIRED=$(jq -r '.workflow.phases.qa // "required"' "$POLICY_JSON")
-  SIMPLIFY_REQUIRED=$(jq -r '.workflow.phases.simplify // "required"' "$POLICY_JSON")
-fi
+QA_REQUIRED="optional"
+SIMPLIFY_REQUIRED="optional"
 
 PROBLEMS=""
 

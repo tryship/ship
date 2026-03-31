@@ -128,13 +128,31 @@ Defects are caught at source, never passed downstream.
 
 ### Task ID
 
-1. If invoked by ship:auto, the task_id is provided and
-   `.ship/tasks/<task_id>/plan/` already exists.
-2. If invoked standalone, generate `task_id` as a short slug from the task
-   description (e.g., "fix login timeout" → `fix-login-timeout`).
+1. If invoked by ship:auto, the task_id is provided.
+2. If invoked standalone, generate `task_id` using the shared script:
+   ```bash
+   TASK_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/task-id.sh "<description>")
    ```
-   mkdir -p .ship/tasks/<task_id>/plan
-   ```
+
+Artifacts go to `.ship/tasks/<task_id>/plan/`. The Write tool creates
+directories automatically — no mkdir needed.
+
+### Existing spec.md detection
+
+Check if `spec.md` already exists with content:
+```bash
+[ -s .ship/tasks/<task_id>/plan/spec.md ] && echo 'SPEC_EXISTS' || echo 'NO_SPEC'
+```
+
+If `SPEC_EXISTS`:
+- Read `spec.md`. This was written by an upstream skill (e.g. refactor).
+- **Do not overwrite it.** Use it as your investigation input.
+- Your job narrows: investigate to validate the spec's claims, then
+  produce only `plan.md`. You may append an `## Investigation` section
+  to the existing spec if it lacks one, but preserve all existing sections.
+- Skip to Phase 2 with the spec as your starting context.
+
+If `NO_SPEC`: proceed normally — you produce both `spec.md` and `plan.md`.
 
 ## Phase 2: Investigate
 
@@ -195,7 +213,11 @@ Write an `## Investigation` section in spec.md with:
 
 ## Phase 3: Write Plan A
 
-With your investigation complete, write `spec.md` and `plan.md`.
+If `SPEC_EXISTS` (from Phase 1): spec.md already has content from an
+upstream skill. Append your `## Investigation` section to it if missing,
+but do not rewrite existing sections. Then write only `plan.md`.
+
+If `NO_SPEC`: write both `spec.md` and `plan.md` from scratch.
 
 ### spec.md structure
 
