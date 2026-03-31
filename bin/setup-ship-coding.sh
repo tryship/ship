@@ -25,7 +25,7 @@ fi
 # ── 1. GENERATE TASK ID + DIRECTORIES ─────────────────────────
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 TASK_ID=$(bash "$SCRIPT_DIR/task-id.sh" "$TASK_DESCRIPTION")
-mkdir -p ".ship/tasks/$TASK_ID/plan"
+mkdir -p ".ship/tasks/$TASK_ID"
 
 # ── 2. CREATE STATE FILE ──────────────────────────────────────
 mkdir -p .claude
