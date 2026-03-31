@@ -1,9 +1,9 @@
 #!/bin/bash
-# Ship audit logger — passive PostToolUse / SessionStart / SessionEnd hook handler.
-# Logs file modifications, command executions, and session lifecycle events
-# to .ship/audit/ as JSONL files. NEVER denies anything — exit 0 always.
+# Ship audit logger — standalone hook handler.
+# Logs file modifications, command executions, and optional session lifecycle
+# events to .ship/audit/ as JSONL. Never denies anything and always exits 0.
 #
-# No subagent bypass: logs ALL tool calls regardless of caller.
+# Reads optional config from .ship/rules/rules.json.
 
 set -u
 
@@ -17,34 +17,52 @@ tool_input=$(echo "$INPUT" | jq -c '.tool_input // {}')
 
 [ -z "$CWD" ] && exit 0
 
-# ── LOAD POLICY ──────────────────────────────────────────────
-SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-source "$SCRIPT_DIR/lib/policy.sh"
+REPO_ROOT=$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null || echo "$CWD")
+RULES_JSON="$REPO_ROOT/.ship/rules/rules.json"
 
-load_policy || exit 0
+audit_enabled="true"
+file_modification_enabled="true"
+command_execution_enabled="true"
+session_lifecycle_enabled="false"
 
-# ── CHECK AUDIT ENABLED ─────────────────────────────────────
-audit_enabled=$(echo "$POLICY" | jq -r '.audit.enabled // false')
-[ "$audit_enabled" != "true" ] && exit 0
-
-# ── READ AUDIT EVENT CONFIG ─────────────────────────────────
-file_modification_enabled=$(echo "$POLICY" | jq -r '.audit.events.file_modification // false')
-command_execution_enabled=$(echo "$POLICY" | jq -r '.audit.events.command_execution // false')
-session_lifecycle_enabled=$(echo "$POLICY" | jq -r '.audit.events.session_lifecycle // false')
-
-# ── RETENTION CLEANUP (SessionStart only) ────────────────────
-if [ "$hook_event_name" = "SessionStart" ]; then
-  retention_days=$(echo "$POLICY" | jq -r '.audit.retention_days // ""')
-  if [ -n "$retention_days" ] && [ "$retention_days" != "null" ]; then
-    repo_root=$(_policy_repo_root)
-    audit_dir="$repo_root/.ship/audit"
-    if [ -d "$audit_dir" ]; then
-      find "$audit_dir" -name '*.jsonl' -type f -mtime +"$retention_days" -delete 2>/dev/null || true
-    fi
-  fi
+if [ -f "$RULES_JSON" ]; then
+  audit_enabled=$(jq -r '.audit.enabled // true' "$RULES_JSON" 2>/dev/null || echo "true")
+  file_modification_enabled=$(jq -r '.audit.events.file_modification // true' "$RULES_JSON" 2>/dev/null || echo "true")
+  command_execution_enabled=$(jq -r '.audit.events.command_execution // true' "$RULES_JSON" 2>/dev/null || echo "true")
+  session_lifecycle_enabled=$(jq -r '.audit.events.session_lifecycle // false' "$RULES_JSON" 2>/dev/null || echo "false")
 fi
 
-# ── LOG FILE MODIFICATIONS (Write / Edit) ────────────────────
+[ "$audit_enabled" != "true" ] && exit 0
+
+log_audit() {
+  local event_type="$1"
+  local detail_json="$2"
+  local audit_dir="$REPO_ROOT/.ship/audit"
+  local day_stamp
+  local timestamp
+  local developer
+
+  day_stamp=$(date -u '+%Y-%m-%d')
+  timestamp=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+  developer=$(git -C "$REPO_ROOT" config user.name 2>/dev/null || true)
+
+  mkdir -p "$audit_dir"
+
+  jq -cn \
+    --arg timestamp "$timestamp" \
+    --arg session_id "$session_id" \
+    --arg event_type "$event_type" \
+    --arg developer "$developer" \
+    --argjson detail "$detail_json" \
+    '{
+      timestamp: $timestamp,
+      session_id: $session_id,
+      event_type: $event_type,
+      detail: $detail,
+      developer: $developer
+    }' >>"$audit_dir/$day_stamp.jsonl"
+}
+
 if [ "$file_modification_enabled" = "true" ]; then
   if [ "$tool_name" = "Write" ] || [ "$tool_name" = "Edit" ]; then
     file_path=$(echo "$tool_input" | jq -r '.file_path // ""')
@@ -54,11 +72,9 @@ if [ "$file_modification_enabled" = "true" ]; then
   fi
 fi
 
-# ── LOG COMMAND EXECUTIONS (Bash) ────────────────────────────
 if [ "$command_execution_enabled" = "true" ]; then
   if [ "$tool_name" = "Bash" ]; then
     command_raw=$(echo "$tool_input" | jq -r '.command // ""')
-    # Truncate to 200 characters
     command_truncated=$(printf '%.200s' "$command_raw")
     detail=$(jq -cn --arg command "$command_truncated" \
       '{command: $command}')
@@ -66,7 +82,6 @@ if [ "$command_execution_enabled" = "true" ]; then
   fi
 fi
 
-# ── LOG SESSION LIFECYCLE (SessionStart / SessionEnd) ────────
 if [ "$session_lifecycle_enabled" = "true" ]; then
   if [ "$hook_event_name" = "SessionStart" ] || [ "$hook_event_name" = "SessionEnd" ]; then
     detail=$(jq -cn --arg reason "$hook_event_name" \
