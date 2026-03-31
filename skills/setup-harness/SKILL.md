@@ -301,7 +301,19 @@ Options:
 
 ### Step C: Register hook
 
-Read `.claude/settings.json` (create `{}` if missing).
+Use AskUserQuestion to choose where to register the hook:
+
+```
+Where should the convention enforcement hook be registered?
+```
+
+Options:
+- A) Project shared (`.claude/settings.json`) — all team members get enforcement
+- B) Project local (`.claude/settings.local.json`) — only you, not committed
+- C) User global (`~/.claude/settings.json`) — all your projects
+- D) Skip — don't register a hook
+
+Read the chosen settings file (create `{}` if missing).
 Add this entry to `hooks.PreToolUse` array, preserving existing entries:
 
 ```json
@@ -330,7 +342,8 @@ Skip if an identical hook entry already exists.
 Add `.ship/tasks/` and `.ship/audit/` if not present.
 Do NOT gitignore `.ship/rules/`.
 
-If `.claude/` is fully gitignored, change to:
+If user chose project shared hook (Step C option A) and `.claude/` is
+fully gitignored, change to:
 ```
 .claude/*
 !.claude/settings.json
