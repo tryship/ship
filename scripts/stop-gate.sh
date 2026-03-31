@@ -54,24 +54,14 @@ else
   TASK_DIR="$REPO_ROOT/$TASK_DIR"
 fi
 
-# ── READ WORKFLOW CONFIG ─────────────────────────────────────
-# Read workflow phase requirements from rules.json
-RULES_JSON="$REPO_ROOT/.ship/rules/rules.json"
-
-# Defaults: all phases required (backward compatible)
+# ── WORKFLOW CONFIG ──────────────────────────────────────────
+# All phases required by default. QA and simplify are optional
+# because they depend on whether code changes were made.
 PLAN_REQUIRED="required"
 REVIEW_REQUIRED="required"
 VERIFY_REQUIRED="required"
-QA_REQUIRED="required"
-SIMPLIFY_REQUIRED="required"
-
-if [ -f "$RULES_JSON" ]; then
-  PLAN_REQUIRED=$(jq -r '.workflow.phases.plan // "required"' "$RULES_JSON")
-  REVIEW_REQUIRED=$(jq -r '.workflow.phases.review // "required"' "$RULES_JSON")
-  VERIFY_REQUIRED=$(jq -r '.workflow.phases.verify // "required"' "$RULES_JSON")
-  QA_REQUIRED=$(jq -r '.workflow.phases.qa // "required"' "$RULES_JSON")
-  SIMPLIFY_REQUIRED=$(jq -r '.workflow.phases.simplify // "required"' "$RULES_JSON")
-fi
+QA_REQUIRED="optional"
+SIMPLIFY_REQUIRED="optional"
 
 PROBLEMS=""
 
