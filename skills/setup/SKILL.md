@@ -416,6 +416,14 @@ Options:
 - C) User global (`~/.claude/settings.json`) — all your projects
 - D) Skip — don't register a hook
 
+First, copy the convention checker script into the repo so it travels
+with the project (not tied to the plugin's install path):
+
+```bash
+mkdir -p .ship/scripts
+cp "${CLAUDE_PLUGIN_ROOT}/scripts/check-conventions.sh" .ship/scripts/check-conventions.sh
+```
+
 Read the chosen settings file (create `{}` if missing).
 Add this entry to `hooks.PreToolUse` array, preserving existing entries:
 
@@ -425,18 +433,21 @@ Add this entry to `hooks.PreToolUse` array, preserving existing entries:
   "hooks": [
     {
       "type": "command",
-      "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-conventions.sh",
+      "command": "bash .ship/scripts/check-conventions.sh",
       "statusMessage": "Reviewing coding conventions..."
     }
   ]
 }
 ```
 
-The script is part of the ship plugin (`scripts/check-conventions.sh`). It:
+The script (`.ship/scripts/check-conventions.sh`) is committed to the repo. It:
 1. Reads hook input JSON from stdin
 2. Checks if the file matches any scope in CONVENTIONS.md
 3. Sends the code + conventions to `claude -p` (Haiku, print mode)
 4. Exit 0 = pass, exit 2 = violation (stderr has details)
+
+Using a repo-local path (`.ship/scripts/`) instead of `${CLAUDE_PLUGIN_ROOT}`
+ensures the hook works on any machine without the plugin installed.
 
 Skip if an identical hook entry already exists.
 
