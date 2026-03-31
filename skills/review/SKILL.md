@@ -12,6 +12,7 @@ allowed-tools:
   - Glob
   - Grep
   - Write
+  - AskUserQuestion
 ---
 
 ## Preamble (run first)

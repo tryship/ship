@@ -149,6 +149,12 @@ Bash("mkdir -p .ship/tasks/<task_id>")
 
 Detect languages, lint config, test command. Record `TASK_ID` and `TASK_DIR`.
 
+Detect the base branch:
+```
+Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || git rev-parse --verify origin/main >/dev/null 2>&1 && echo main || echo master")
+```
+Record as `BASE_BRANCH`. Use this value wherever `<base>` appears in later phases.
+
 - If `.ship/rules/semantic/CONVENTIONS.md` is missing: suggest `/ship:ship-setup` but do not block.
 
 Output: `[Ship] Task "<title>" created. Starting design phase...`

@@ -117,7 +117,7 @@ digraph plan {
 | Gate | Condition | Fail action |
 |------|-----------|-------------|
 | Investigation → Write | All claims trace to file:line you read | Re-investigate |
-| Write → Plan B | spec.md has Investigation section, plan.md has concrete steps | Revise |
+| Write → Plan B | spec.md has Background + Investigation sections, plan.md has concrete steps | Revise |
 | Diff → Drill | Zero `escalated` items (or user resolved them) | Ask user |
 | Drill → Ready | Zero BLOCKED steps, zero UNCLEAR steps | Revise plan (max 1 loop) |
 
@@ -228,6 +228,12 @@ If `NO_SPEC`: write both `spec.md` and `plan.md` from scratch.
 ### spec.md structure
 
 ```markdown
+## Background
+**Goal:** [One sentence — what this task achieves for the user/system]
+**Problem:** [What's broken, missing, or suboptimal — from the user's perspective]
+**Why now:** [What triggered this work — user report, tech debt, new requirement]
+**Context:** [2-3 sentences on how this fits into the broader system/product]
+
 ## Investigation
 ### What was traced
 - [call chain / data flow / integration path with file:line refs]
@@ -247,6 +253,11 @@ If `NO_SPEC`: write both `spec.md` and `plan.md` from scratch.
 ## Acceptance Criteria
 [concrete, testable criteria]
 ```
+
+**A spec.md without a Background section is incomplete.** The implementer
+needs to understand WHY they are building this, not just WHAT to build.
+Without background, the implementer makes wrong tradeoff decisions
+because they don't know what problem they're solving.
 
 ### plan.md structure
 
