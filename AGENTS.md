@@ -17,7 +17,7 @@
 | `hooks/` | `hooks.json` | Plugin-level hook registration (Stop only) |
 | `skills/` | Skill dirs | Claude Code slash commands (/ship:ship-auto, /ship:ship-plan, etc.) |
 | `skills/setup/` | Setup skill | Infra bootstrap + convention discovery, AGENTS.md + CONVENTIONS.md generation |
-| `.claude-plugin/` | `plugin.json` | Plugin metadata for Claude Code marketplace |
+| `.claude-plugin/` | `plugin.json` | Plugin metadata for ShipAI |
 | `.mcp.json` | MCP config | Codex MCP server registration |
 
 ## Architecture

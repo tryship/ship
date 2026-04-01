@@ -64,9 +64,9 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 
 ## Installation
 
-### Claude Code (via Plugin Marketplace)
+### Claude Code (via ShipAI)
 
-Register the marketplace first:
+Register the plugin source first:
 
 ```
 /plugin marketplace add tryship/ship

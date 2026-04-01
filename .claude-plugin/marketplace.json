@@ -1,6 +1,6 @@
 {
   "name": "ship-tech",
-  "description": "Marketplace for the Ship agent harness plugin",
+  "description": "ShipAI plugin marketplace",
   "owner": {
     "name": "Ship",
     "url": "https://www.ship.tech"
