@@ -40,14 +40,14 @@ Plan → Approve → Dev → Review → Verify → QA → Simplify → Handoff
 ```
 
 1. **Bootstrap** — init task directory, detect tooling
-2. **Design** — invoke `plan` for adversarial planning
+2. **Design** — invoke `/ship:plan` for adversarial planning
 3. **Approve** — present the plan to you. This is the only human gate.
-4. **Dev** — invoke `dev` to execute implementation stories
-5. **Review** — invoke `review` for staff-engineer code review
+4. **Dev** — invoke `/ship:dev` to execute implementation stories
+5. **Review** — invoke `/ship:review` for staff-engineer code review
 6. **Verify** — run tests + lint. Up to 3 retry rounds.
-7. **QA** — invoke `qa` against the running application
+7. **QA** — invoke `/ship:qa` against the running application
 8. **Simplify** — behavior-preserving cleanup (dead code, redundant abstractions)
-9. **Handoff** — invoke `handoff` to create PR and shepherd it to merge-ready
+9. **Handoff** — invoke `/ship:handoff` to create PR and shepherd it to merge-ready
 
 Every transition has a quality gate. If the gate fails, the phase retries with strict caps (verify: 3, review: 3, QA: 2) before escalating to you.
 

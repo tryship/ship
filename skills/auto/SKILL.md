@@ -61,42 +61,42 @@ digraph auto {
 
     "Start" [shape=doublecircle];
     "Bootstrap (init task dir, detect tooling)" [shape=box];
-    "Design (ship:plan)" [shape=box];
+    "Design (/ship:plan)" [shape=box];
     "User approves plan?" [shape=diamond];
-    "Implement (ship:dev)" [shape=box];
+    "Implement (/ship:dev)" [shape=box];
     "Review (code review)" [shape=box];
     "Review clean?" [shape=diamond];
     "Verify (tests + lint + spec)" [shape=box];
     "Verify passed?" [shape=diamond];
-    "QA (ship:qa)" [shape=box];
+    "QA (/ship:qa)" [shape=box];
     "QA passed?" [shape=diamond];
     "Simplify (behavior-preserving cleanup)" [shape=box];
     "Simplify broke tests?" [shape=diamond];
-    "Handoff (ship:handoff)" [shape=box];
+    "Handoff (/ship:handoff)" [shape=box];
     "PR merge-ready" [shape=doublecircle];
     "STOP: BLOCKED — escalate to user" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
 
     "Start" -> "Bootstrap (init task dir, detect tooling)";
-    "Bootstrap (init task dir, detect tooling)" -> "Design (ship:plan)";
-    "Design (ship:plan)" -> "User approves plan?";
-    "User approves plan?" -> "Design (ship:plan)" [label="revise"];
-    "User approves plan?" -> "Implement (ship:dev)" [label="approved"];
-    "Implement (ship:dev)" -> "Review (code review)";
+    "Bootstrap (init task dir, detect tooling)" -> "Design (/ship:plan)";
+    "Design (/ship:plan)" -> "User approves plan?";
+    "User approves plan?" -> "Design (/ship:plan)" [label="revise"];
+    "User approves plan?" -> "Implement (/ship:dev)" [label="approved"];
+    "Implement (/ship:dev)" -> "Review (code review)";
     "Review (code review)" -> "Review clean?";
-    "Review clean?" -> "Implement (ship:dev)" [label="findings, fix"];
+    "Review clean?" -> "Implement (/ship:dev)" [label="findings, fix"];
     "Review clean?" -> "Verify (tests + lint + spec)" [label="clean"];
     "Verify (tests + lint + spec)" -> "Verify passed?";
-    "Verify passed?" -> "Implement (ship:dev)" [label="fail, retry ≤3"];
-    "Verify passed?" -> "QA (ship:qa)" [label="pass"];
+    "Verify passed?" -> "Implement (/ship:dev)" [label="fail, retry ≤3"];
+    "Verify passed?" -> "QA (/ship:qa)" [label="pass"];
     "Verify passed?" -> "STOP: BLOCKED — escalate to user" [label="retries exhausted"];
-    "QA (ship:qa)" -> "QA passed?";
-    "QA passed?" -> "Implement (ship:dev)" [label="fail, retry ≤2"];
+    "QA (/ship:qa)" -> "QA passed?";
+    "QA passed?" -> "Implement (/ship:dev)" [label="fail, retry ≤2"];
     "QA passed?" -> "Simplify (behavior-preserving cleanup)" [label="pass"];
     "QA passed?" -> "STOP: BLOCKED — escalate to user" [label="retries exhausted"];
     "Simplify (behavior-preserving cleanup)" -> "Simplify broke tests?";
     "Simplify broke tests?" -> "Verify (tests + lint + spec)" [label="yes, revert + skip"];
-    "Simplify broke tests?" -> "Handoff (ship:handoff)" [label="clean"];
-    "Handoff (ship:handoff)" -> "PR merge-ready";
+    "Simplify broke tests?" -> "Handoff (/ship:handoff)" [label="clean"];
+    "Handoff (/ship:handoff)" -> "PR merge-ready";
 }
 ```
 
@@ -105,13 +105,13 @@ digraph auto {
 | Role | Who | Why |
 |------|-----|-----|
 | Orchestrator | **You (Claude)** | Read-only coordinator, no code/tests |
-| Design | **ship:plan** (subagent) | Adversarial planning with Codex |
-| Implementation | **ship:dev** (subagent) | Codex MCP implements, Claude reviews |
-| Code review | **ship:review** (subagent) | Staff-engineer review: find all bugs + diagnose structural deficiencies |
+| Design | **/ship:plan** (subagent) | Adversarial planning with Codex |
+| Implementation | **/ship:dev** (subagent) | Codex MCP implements, Claude reviews |
+| Code review | **/ship:review** (subagent) | Staff-engineer review: find all bugs + diagnose structural deficiencies |
 | Verification | **Agent** (subagent, runs TEST_CMD + lint, writes verify.md) | Keeps orchestrator artifact-free |
-| QA | **ship:qa** (subagent) | Independent testing against running app |
+| QA | **/ship:qa** (subagent) | Independent testing against running app |
 | Simplify | **simplify** (Claude built-in skill, via Agent) | Behavior-preserving cleanup |
-| Handoff | **ship:handoff** (subagent) | PR creation + CI loop |
+| Handoff | **/ship:handoff** (subagent) | PR creation + CI loop |
 
 ## Hard Rules
 
@@ -227,7 +227,7 @@ Agent(prompt="Call Skill('dev'). Params: task_dir=.ship/tasks/<task_id>, spec=.s
 
 Output: `[Ship] All stories implemented. Starting code review...`
 
-## Phase 5: Review (ship:review, independent)
+## Phase 5: Review (/ship:review, independent)
 
 Global code review across all stories. Implement's per-story review
 catches story-level issues; this catches cross-story bugs and

@@ -4,7 +4,7 @@ version: 0.2.0
 description: >
   Use when code is ready to ship: creates a PR with proof bundle, waits for
   CI/CD, addresses review comments and merge conflicts, and iterates until
-  the PR is merge-ready. Called by auto at the end, or invoked
+  the PR is merge-ready. Called by /ship:auto at the end, or invoked
   directly via /ship:handoff after manual work.
 allowed-tools:
   - Bash

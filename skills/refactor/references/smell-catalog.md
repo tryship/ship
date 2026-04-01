@@ -38,7 +38,7 @@ Techniques are ordered by LLM reliability (best first).
 
 | Signal | Why | Redirect to |
 |--------|-----|-------------|
-| "This is slow" | Performance, not structure | /fix or /auto |
+| "This is slow" | Performance, not structure | /fix or /ship:auto |
 | "This crashes on X input" | Bug, not structure | /fix or /investigate |
-| "Add feature X" | Feature work, not refactor | /auto |
+| "Add feature X" | Feature work, not refactor | /ship:auto |
 | Code is already clean but unfamiliar | Learning, not refactoring | Ask questions, read docs |

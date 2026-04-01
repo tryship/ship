@@ -361,7 +361,7 @@ No bugs found. Reviewed <N> files, <M> lines changed against spec.
 - Auto-detect spec from `.ship/tasks/` or ask user
 - Write report to `.ship/tasks/<task_id>/review.md`
 
-### Pipeline mode (called by ship:auto)
+### Pipeline mode (called by /ship:auto)
 
 - Task ID, spec path, and base branch provided by caller
 - Write report to `.ship/tasks/<task_id>/review.md`
@@ -369,7 +369,7 @@ No bugs found. Reviewed <N> files, <M> lines changed against spec.
 
 ### Detecting invocation mode
 
-- **From ship:auto**: the calling prompt contains a `task_id` and `task_dir`.
+- **From /ship:auto**: the calling prompt contains a `task_id` and `task_dir`.
 - **Standalone** (`/ship:review`): invoked directly by user.
 
 ## Artifacts
