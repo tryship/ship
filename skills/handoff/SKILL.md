@@ -5,7 +5,7 @@ description: >
   Use when code is ready to ship: creates a PR with proof bundle, waits for
   CI/CD, addresses review comments and merge conflicts, and iterates until
   the PR is merge-ready. Called by auto at the end, or invoked
-  directly via /handoff after manual work.
+  directly via /ship:handoff after manual work.
 allowed-tools:
   - Bash
   - Read
@@ -52,7 +52,7 @@ CI GREEN + REVIEWS ADDRESSED + NO CONFLICTS = DONE.
 ```
 
 Creating a PR and stopping is shipping half the work. Always enter the
-post-PR loop. The goal: user says `/handoff`, next thing they see is a
+post-PR loop. The goal: user says `/ship:handoff`, next thing they see is a
 merge-ready PR URL.
 
 ## Process Flow

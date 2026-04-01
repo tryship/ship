@@ -1,6 +1,6 @@
 # Reviewer — Claude Agent Prompt
 
-Used in Phase 2 Step B of `/dev`. Fresh Claude Agent reviews
+Used in Phase 2 Step B of `/ship:dev`. Fresh Claude Agent reviews
 each story independently.
 
 ## Dispatch

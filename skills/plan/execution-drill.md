@@ -1,6 +1,6 @@
 # Execution Drill — Codex Prompt
 
-Used in Phase 6 of `/plan`. Codex reviews the plan for implementability.
+Used in Phase 6 of `/ship:plan`. Codex reviews the plan for implementability.
 
 Use a **new** `mcp__codex__codex` session (not the Plan B thread).
 

@@ -400,7 +400,7 @@ Use a **new** MCP session, not the Plan B thread.
 
 ### Detecting invocation mode
 
-- **Standalone** (`/plan`): the user invoked plan directly.
+- **Standalone** (`/ship:plan`): the user invoked plan directly.
 - **From ship:auto**: the calling prompt contains a task_id.
   Ship:auto is waiting for artifacts to exist.
 
@@ -420,7 +420,7 @@ Use a **new** MCP session, not the Plan B thread.
 - diff-report.md: .ship/tasks/<task_id>/plan/diff-report.md
 
 ## What's next?
-1. **Implement now** — run /dev to execute this plan
+1. **Implement now** — run /ship:dev to execute this plan
 2. **Review the plan** — read the artifacts and give feedback
 3. **Re-plan** — discard this plan and start over
 ```

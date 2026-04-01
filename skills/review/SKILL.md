@@ -355,7 +355,7 @@ No bugs found. Reviewed <N> files, <M> lines changed against spec.
 
 ## Standalone vs Pipeline Mode
 
-### Standalone (`/review`)
+### Standalone (`/ship:review`)
 
 - Read diff from current branch vs base
 - Auto-detect spec from `.ship/tasks/` or ask user
@@ -370,7 +370,7 @@ No bugs found. Reviewed <N> files, <M> lines changed against spec.
 ### Detecting invocation mode
 
 - **From ship:auto**: the calling prompt contains a `task_id` and `task_dir`.
-- **Standalone** (`/review`): invoked directly by user.
+- **Standalone** (`/ship:review`): invoked directly by user.
 
 ## Artifacts
 

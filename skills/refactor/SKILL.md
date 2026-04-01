@@ -103,7 +103,7 @@ it hurts the next change).
 | All smells are within-file (long method, complex conditional, duplication, dead code, bad names) | **Surgical** | Fix directly |
 | Smells are cross-file (god file, circular dep, duplicated logic across files, dependency violation) | **Structural** | Write execution card, then execute |
 | Mix of both | **Structural** | Structural first (includes surgical cleanup at the end) |
-| Not a code smell (slow performance, runtime bug, feature request) | **Redirect** | Suggest /fix, /investigate, or /auto |
+| Not a code smell (slow performance, runtime bug, feature request) | **Redirect** | Suggest /fix, /investigate, or /ship:auto |
 
 Output: `[Refactor] Scope: <files>. Classification: <surgical|structural|redirect>. Smells found: <count>.`
 
