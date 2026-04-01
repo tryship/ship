@@ -1,5 +1,5 @@
 ---
-name: ship-setup
+name: setup
 version: 1.0.0
 description: >
   Bootstrap repo infrastructure and AI harness in one command. Detects languages
@@ -21,7 +21,7 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=ship-setup source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_SKILL_NAME=setup source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 ```
 
 # Ship: Setup

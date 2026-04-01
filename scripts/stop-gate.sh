@@ -68,10 +68,10 @@ PROBLEMS=""
 # ── 1. DESIGN ARTIFACTS (Step 2) ──────────────────────────────
 if [ "$PLAN_REQUIRED" = "required" ]; then
   if [ ! -s "$TASK_DIR/plan/spec.md" ]; then
-    PROBLEMS="${PROBLEMS}\n- plan/spec.md is missing. Go back to Step 2 (Design) — dispatch ship-plan subagent to produce the spec."
+    PROBLEMS="${PROBLEMS}\n- plan/spec.md is missing. Go back to Step 2 (Design) — dispatch plan subagent to produce the spec."
   fi
   if [ ! -s "$TASK_DIR/plan/plan.md" ]; then
-    PROBLEMS="${PROBLEMS}\n- plan/plan.md is missing. Go back to Step 2 (Design) — dispatch ship-plan subagent to produce the implementation plan."
+    PROBLEMS="${PROBLEMS}\n- plan/plan.md is missing. Go back to Step 2 (Design) — dispatch plan subagent to produce the implementation plan."
   fi
 fi
 
@@ -122,10 +122,10 @@ if [ "$QA_REQUIRED" = "required" ] && [ "$HAS_CODE_CHANGES" = "true" ]; then
   [ -s "$TASK_DIR/qa/qa.md" ] && QA_FILE="$TASK_DIR/qa/qa.md"
   [ -z "$QA_FILE" ] && [ -s "$TASK_DIR/qa.md" ] && QA_FILE="$TASK_DIR/qa.md"
   if [ -z "$QA_FILE" ]; then
-    PROBLEMS="${PROBLEMS}\n- qa.md is missing but code was changed. Go back to Step 7 (QA Evaluation) — dispatch ship-qa subagent. You MUST NOT skip QA yourself; only ship-qa can return a SKIP verdict."
+    PROBLEMS="${PROBLEMS}\n- qa.md is missing but code was changed. Go back to Step 7 (QA Evaluation) — dispatch qa subagent. You MUST NOT skip QA yourself; only qa can return a SKIP verdict."
   else
     if ! grep -qE '<!-- QA_RESULT: (PASS|FAIL|SKIP) [0-9]+/10' "$QA_FILE" 2>/dev/null; then
-      PROBLEMS="${PROBLEMS}\n- qa.md has malformed or missing QA_RESULT header. Go back to Step 7 (QA Evaluation) — re-dispatch ship-qa subagent to produce a valid evaluation."
+      PROBLEMS="${PROBLEMS}\n- qa.md has malformed or missing QA_RESULT header. Go back to Step 7 (QA Evaluation) — re-dispatch qa subagent to produce a valid evaluation."
     elif grep -q '<!-- QA_RESULT: FAIL' "$QA_FILE" 2>/dev/null; then
       PROBLEMS="${PROBLEMS}\n- qa.md has FAIL result. Go back to Step 4 (Implement) — fix the failing criteria, then re-run Steps 5-7 (Review → Verify → QA)."
     fi

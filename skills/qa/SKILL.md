@@ -1,5 +1,5 @@
 ---
-name: ship-qa
+name: qa
 version: 2.1.0
 description: >
   Independent QA: starts the application, verifies spec criteria against
@@ -10,7 +10,7 @@ description: >
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=ship-qa source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_SKILL_NAME=qa source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 ```
 
 # Ship: QA

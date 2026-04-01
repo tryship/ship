@@ -53,20 +53,20 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 
 | Skill | Description |
 |-------|-------------|
-| `/ship:ship-auto` | Full pipeline orchestrator: plan → dev → review → verify → QA → simplify → handoff |
-| `/ship:ship-plan` | Adversarial pre-coding planning with Codex challenger (2-round convergence) |
-| `/ship:ship-dev` | Execute implementation stories from a plan — Codex implements, Claude reviews |
-| `/ship:ship-review` | Review code for bugs, security issues, and best practices |
-| `/ship:ship-qa` | Independent QA evaluation: functional, exploratory, and health testing with L1 evidence |
-| `/ship:ship-handoff` | PR creation with proof bundle, CI fix loop, and review comment resolution |
-| `/ship:ship-refactor` | Behavior-preserving code cleanup with baseline comparison |
-| `/ship:ship-setup` | Bootstrap infra + discover conventions, generate AGENTS.md + CONVENTIONS.md, register enforcement hook |
+| `/ship:auto` | Full pipeline orchestrator: plan → dev → review → verify → QA → simplify → handoff |
+| `/ship:plan` | Adversarial pre-coding planning with Codex challenger (2-round convergence) |
+| `/ship:dev` | Execute implementation stories from a plan — Codex implements, Claude reviews |
+| `/ship:review` | Review code for bugs, security issues, and best practices |
+| `/ship:qa` | Independent QA evaluation: functional, exploratory, and health testing with L1 evidence |
+| `/ship:handoff` | PR creation with proof bundle, CI fix loop, and review comment resolution |
+| `/ship:refactor` | Behavior-preserving code cleanup with baseline comparison |
+| `/ship:setup` | Bootstrap infra + discover conventions, generate AGENTS.md + CONVENTIONS.md, register enforcement hook |
 
 ## Installation
 
-### Claude Code (via Plugin Marketplace)
+### Claude Code (via ShipAI)
 
-Register the marketplace first:
+Register the plugin source first:
 
 ```
 /plugin marketplace add tryship/ship

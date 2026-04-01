@@ -4,18 +4,18 @@ Detailed guides for every Ship skill — philosophy, workflow, and examples.
 
 | Skill | Role | What it does |
 |-------|------|--------------|
-| [`/ship:ship-auto`](#ship-auto) | **Pipeline Orchestrator** | The full pipeline. One command from task description to merge-ready PR. Delegates every phase to fresh subagents with quality gates at every transition. You approve the plan once; it handles the rest. |
-| [`/ship:ship-plan`](#ship-plan) | **Adversarial Planner** | Reads your codebase, writes a plan, then hands it to an independent Codex challenger. Two rounds of adversarial review. A blind execution drill. You see the plan only after it survives falsification. |
-| [`/ship:ship-dev`](#ship-dev) | **Implementation Engine** | Executes stories from a plan. Codex writes code, Claude reviews — different models catching each other's blind spots. Stories run sequentially; review must pass before the next one starts. |
-| [`/ship:ship-review`](#ship-review) | **Staff Engineer** | Find every bug in the diff, then diagnose the structural deficiency that breeds them. Bugs are symptoms — the structural crack is the disease. |
-| [`/ship:ship-qa`](#ship-qa) | **Independent QA** | Starts your app, tests every acceptance criterion against the running product. Independence contract: cannot read the review or plan. Only direct observation counts. |
-| [`/ship:ship-handoff`](#ship-handoff) | **Release Engineer** | Creates a PR with a proof bundle, then enters the fix loop: CI failures, review comments, merge conflicts. Doesn't stop until the PR is merge-ready or retries are exhausted. |
-| [`/ship:ship-refactor`](#ship-refactor) | **Structural Diagnostician** | Traces from concrete pain to structural cracks. Writes a refactor spec, then hands off to auto for execution. |
-| [`/ship:ship-setup`](#ship-setup) | **Repo Bootstrapper** | One command. Detects your stack, installs missing tools, configures CI/CD, discovers coding conventions, generates AGENTS.md and CONVENTIONS.md, registers enforcement. |
+| [`/ship:auto`](#auto) | **Pipeline Orchestrator** | The full pipeline. One command from task description to merge-ready PR. Delegates every phase to fresh subagents with quality gates at every transition. You approve the plan once; it handles the rest. |
+| [`/ship:plan`](#plan) | **Adversarial Planner** | Reads your codebase, writes a plan, then hands it to an independent Codex challenger. Two rounds of adversarial review. A blind execution drill. You see the plan only after it survives falsification. |
+| [`/ship:dev`](#dev) | **Implementation Engine** | Executes stories from a plan. Codex writes code, Claude reviews — different models catching each other's blind spots. Stories run sequentially; review must pass before the next one starts. |
+| [`/ship:review`](#review) | **Staff Engineer** | Find every bug in the diff, then diagnose the structural deficiency that breeds them. Bugs are symptoms — the structural crack is the disease. |
+| [`/ship:qa`](#qa) | **Independent QA** | Starts your app, tests every acceptance criterion against the running product. Independence contract: cannot read the review or plan. Only direct observation counts. |
+| [`/ship:handoff`](#handoff) | **Release Engineer** | Creates a PR with a proof bundle, then enters the fix loop: CI failures, review comments, merge conflicts. Doesn't stop until the PR is merge-ready or retries are exhausted. |
+| [`/ship:refactor`](#refactor) | **Structural Diagnostician** | Traces from concrete pain to structural cracks. Writes a refactor spec, then hands off to auto for execution. |
+| [`/ship:setup`](#setup) | **Repo Bootstrapper** | One command. Detects your stack, installs missing tools, configures CI/CD, discovers coding conventions, generates AGENTS.md and CONVENTIONS.md, registers enforcement. |
 
 ---
 
-## `ship-auto`
+## `auto`
 
 This is the **full pipeline**.
 
@@ -40,14 +40,14 @@ Plan → Approve → Dev → Review → Verify → QA → Simplify → Handoff
 ```
 
 1. **Bootstrap** — init task directory, detect tooling
-2. **Design** — invoke `ship-plan` for adversarial planning
+2. **Design** — invoke `/ship:plan` for adversarial planning
 3. **Approve** — present the plan to you. This is the only human gate.
-4. **Dev** — invoke `ship-dev` to execute implementation stories
-5. **Review** — invoke `ship-review` for staff-engineer code review
+4. **Dev** — invoke `/ship:dev` to execute implementation stories
+5. **Review** — invoke `/ship:review` for staff-engineer code review
 6. **Verify** — run tests + lint. Up to 3 retry rounds.
-7. **QA** — invoke `ship-qa` against the running application
+7. **QA** — invoke `/ship:qa` against the running application
 8. **Simplify** — behavior-preserving cleanup (dead code, redundant abstractions)
-9. **Handoff** — invoke `ship-handoff` to create PR and shepherd it to merge-ready
+9. **Handoff** — invoke `/ship:handoff` to create PR and shepherd it to merge-ready
 
 Every transition has a quality gate. If the gate fails, the phase retries with strict caps (verify: 3, review: 3, QA: 2) before escalating to you.
 
@@ -112,13 +112,13 @@ One command. Task description to merge-ready PR. You approved the plan once. Eve
 
 ---
 
-## `ship-plan`
+## `plan`
 
 This is where **adversarial rigor** meets planning.
 
 Most AI planning is a monologue. The model reads your request, skims the codebase, and writes a plan that sounds reasonable. The problem: "sounds reasonable" is not "survives contact with reality." Plans fail when they reference files that don't exist, assume APIs that have different signatures, or miss existing defenses that already handle the case.
 
-`ship-plan` fixes this with a simple rule: **no investigation, no plan.**
+`plan` fixes this with a simple rule: **no investigation, no plan.**
 
 ### How it works
 
@@ -178,7 +178,7 @@ Claude: [Plan] Phase 2: Investigating codebase...
 
 ---
 
-## `ship-dev`
+## `dev`
 
 This is the **implementation engine**.
 
@@ -205,7 +205,7 @@ After all stories, a cross-story regression test catches interactions between st
 ### Example
 
 ```
-You:   /ship:ship-dev
+You:   /ship:dev
 
 Claude: [Dev] Reading plan: 3 stories for rate-limit-upload
 
@@ -231,7 +231,7 @@ Claude: [Dev] Reading plan: 3 stories for rate-limit-upload
 
 ---
 
-## `ship-review`
+## `review`
 
 This is the **staff engineer who finds the disease, not just the symptoms**.
 
@@ -245,7 +245,7 @@ This is the principal contradiction applied to code review: bugs are the many co
 
 ---
 
-## `ship-qa`
+## `qa`
 
 This is **independent QA**.
 
@@ -270,7 +270,7 @@ HTTP 200 is not proof. The QA evaluator must inspect the response body, check th
 ### Example
 
 ```
-You:   /ship:ship-qa
+You:   /ship:qa
 
 Claude: [QA] Starting application... server ready on :3000
         [QA] Building rubric from spec: 3 MUST, 1 SHOULD criteria
@@ -301,7 +301,7 @@ Claude: [QA] Starting application... server ready on :3000
 
 ---
 
-## `ship-handoff`
+## `handoff`
 
 This is the **last mile**.
 
@@ -341,7 +341,7 @@ Max 2 rounds. If it can't get the PR merge-ready in 2 rounds, it escalates to yo
 ### Example
 
 ```
-You:   /ship:ship-handoff
+You:   /ship:handoff
 
 Claude: [Handoff] Checking proof freshness...
         Tests: PASS at a1b2c3d (current HEAD) ✓
@@ -360,7 +360,7 @@ Claude: [Handoff] Checking proof freshness...
 
 ---
 
-## `ship-refactor`
+## `refactor`
 
 This is the **structural diagnostician**.
 
@@ -370,7 +370,7 @@ Refactoring is not "clean up the code." It's answering: **why does adding a feat
 
 Bad refactoring starts with "this module is too big" or "we should use the repository pattern." Good refactoring starts with a specific pain: "every time we add a new notification type, we have to change 4 files." That pain traces to a structural crack — a boundary that doesn't match how the code is actually used.
 
-`ship-refactor` traces from the concrete pain to the crack:
+`refactor` traces from the concrete pain to the crack:
 
 1. **Start with the painful change** — what specific thing is hard to do?
 2. **Trace the dependency chain** — why does this change touch so many files?
@@ -387,7 +387,7 @@ Bad refactoring starts with "this module is too big" or "we should use the repos
 
 ### What it produces
 
-A refactor spec — not code. The spec describes the pain, the current structure, the crack, the target structure, and acceptance criteria. Then it hands off to `ship-auto`, which produces the plan, implements it, reviews it, tests it, and ships it.
+A refactor spec — not code. The spec describes the pain, the current structure, the crack, the target structure, and acceptance criteria. Then it hands off to `auto`, which produces the plan, implements it, reviews it, tests it, and ships it.
 
 ### Example
 
@@ -423,11 +423,11 @@ Claude: [Refactor] Tracing from pain...
 
 ---
 
-## `ship-setup`
+## `setup`
 
 This is the **one-command bootstrap**.
 
-New repo? Inherited codebase? Missing linter? No CI? `ship-setup` handles all of it — and then goes further by discovering the coding conventions your team follows but never wrote down.
+New repo? Inherited codebase? Missing linter? No CI? `setup` handles all of it — and then goes further by discovering the coding conventions your team follows but never wrote down.
 
 ### Part 1: Infrastructure
 
@@ -454,7 +454,7 @@ Then it generates:
 ### Example
 
 ```
-You:   /ship:ship-setup
+You:   /ship:setup
 
 Claude: [Setup] Detecting stack...
         TypeScript (pnpm), Python (uv)

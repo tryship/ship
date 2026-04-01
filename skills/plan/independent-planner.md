@@ -1,6 +1,6 @@
 # Independent Planner — Codex Prompt
 
-Used in Phase 4 of `/ship-plan`. Codex produces Plan B independently.
+Used in Phase 4 of `/ship:plan`. Codex produces Plan B independently.
 
 ## MCP Call
 

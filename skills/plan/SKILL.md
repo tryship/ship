@@ -1,5 +1,5 @@
 ---
-name: ship-plan
+name: plan
 version: 0.3.0
 description: "Adversarial pre-coding planning: you investigate the codebase, write a plan, then Codex independently produces its own plan. Differences are resolved by code evidence, and a blind execution drill verifies implementability."
 allowed-tools:
@@ -17,7 +17,7 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=ship-plan source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_SKILL_NAME=plan source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 ```
 
 # Ship: Plan
@@ -134,7 +134,7 @@ Defects are caught at source, never passed downstream.
 
 ### Task ID
 
-1. If invoked by ship:auto, the task_id is provided.
+1. If invoked by /ship:auto, the task_id is provided.
 2. If invoked standalone, generate `task_id` using the shared script:
    ```bash
    TASK_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/task-id.sh "<description>")
@@ -334,7 +334,7 @@ Mark as **confirmed** — independent replication increases confidence.
 - Update `spec.md` and `plan.md` with all `patched` items.
 - If any `escalated` items exist:
   - **Standalone mode:** ask user via AskUserQuestion before proceeding.
-  - **ship:auto mode:** do NOT ask user. Treat escalated items as BLOCKED
+  - **/ship:auto mode:** do NOT ask user. Treat escalated items as BLOCKED
     and return. Auto owns the only user-approval gate (Phase 3).
 - If diff reveals a critical investigation gap (e.g., Plan B found
   important code Plan A missed entirely), go back to Phase 2 for
@@ -400,9 +400,9 @@ Use a **new** MCP session, not the Plan B thread.
 
 ### Detecting invocation mode
 
-- **Standalone** (`/ship-plan`): the user invoked plan directly.
-- **From ship:auto**: the calling prompt contains a task_id.
-  Ship:auto is waiting for artifacts to exist.
+- **Standalone** (`/ship:plan`): the user invoked plan directly.
+- **From /ship:auto**: the calling prompt contains a task_id.
+  /ship:auto is waiting for artifacts to exist.
 
 ### Standalone completion
 
@@ -420,14 +420,14 @@ Use a **new** MCP session, not the Plan B thread.
 - diff-report.md: .ship/tasks/<task_id>/plan/diff-report.md
 
 ## What's next?
-1. **Implement now** — run /ship-dev to execute this plan
+1. **Implement now** — run /ship:dev to execute this plan
 2. **Review the plan** — read the artifacts and give feedback
 3. **Re-plan** — discard this plan and start over
 ```
 
-### Ship:auto completion
+### /ship:auto completion
 
-Do NOT ask the user. Ship:auto is waiting for artifacts. Just:
+Do NOT ask the user. /ship:auto is waiting for artifacts. Just:
 
 1. Verify `spec.md` and `plan.md` are non-empty on disk.
 2. Output: `[Plan] Design complete — spec.md and plan.md ready.`

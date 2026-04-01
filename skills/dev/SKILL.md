@@ -1,5 +1,5 @@
 ---
-name: ship-dev
+name: dev
 version: 0.3.0
 description: Execute implementation stories from a plan. Codex implements each story via MCP, Claude reviews spec compliance and code correctness. Stories run sequentially; review must pass before the next story starts.
 allowed-tools:
@@ -18,7 +18,7 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=ship-dev source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_SKILL_NAME=dev source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 ```
 
 # Ship: Implement

@@ -1,5 +1,5 @@
 ---
-name: ship-review
+name: review
 version: 0.1.0
 description: >
   Staff-engineer code review: find every bug in the diff — spec violations,
@@ -18,7 +18,7 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=ship-review source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_SKILL_NAME=review source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 ```
 
 # Ship: Review
@@ -355,13 +355,13 @@ No bugs found. Reviewed <N> files, <M> lines changed against spec.
 
 ## Standalone vs Pipeline Mode
 
-### Standalone (`/review`)
+### Standalone (`/ship:review`)
 
 - Read diff from current branch vs base
 - Auto-detect spec from `.ship/tasks/` or ask user
 - Write report to `.ship/tasks/<task_id>/review.md`
 
-### Pipeline mode (called by ship:auto)
+### Pipeline mode (called by /ship:auto)
 
 - Task ID, spec path, and base branch provided by caller
 - Write report to `.ship/tasks/<task_id>/review.md`
@@ -369,8 +369,8 @@ No bugs found. Reviewed <N> files, <M> lines changed against spec.
 
 ### Detecting invocation mode
 
-- **From ship:auto**: the calling prompt contains a `task_id` and `task_dir`.
-- **Standalone** (`/review`): invoked directly by user.
+- **From /ship:auto**: the calling prompt contains a `task_id` and `task_dir`.
+- **Standalone** (`/ship:review`): invoked directly by user.
 
 ## Artifacts
 
