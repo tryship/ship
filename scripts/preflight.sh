@@ -6,6 +6,19 @@ set -u
 
 _SKILL_NAME="${SHIP_SKILL_NAME:-unknown}"
 
+# --- User preferences ---
+# Settings file: .claude/ship.local.md (YAML frontmatter)
+# Supported settings:
+#   auto_login: true|false  — skip confirmation prompt on login
+_REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
+_SETTINGS_FILE="${_REPO_ROOT}/.claude/ship.local.md"
+_AUTO_LOGIN="false"
+if [ -f "$_SETTINGS_FILE" ]; then
+  _FM=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$_SETTINGS_FILE")
+  _AUTO_LOGIN=$(echo "$_FM" | grep '^auto_login:' | sed 's/auto_login:[[:space:]]*//' || echo "false")
+fi
+echo "SHIP_AUTO_LOGIN: $_AUTO_LOGIN"
+
 # --- Ship CLI check ---
 if command -v ship >/dev/null 2>&1; then
   _CLI_VERSION=$(ship --version 2>/dev/null)
@@ -21,12 +34,23 @@ if command -v ship >/dev/null 2>&1; then
       echo "SHIP_UPDATE: $_LATEST available (current: $_CLI_VERSION). Run: curl -fsSL https://www.ship.tech/install.sh | sh"
     fi
 
-    # Check auth status
-    if ship auth status >/dev/null 2>&1; then
+    # Check auth status (use --json for structured output; exit code is unreliable)
+    _AUTH_JSON=$(ship auth status --json 2>/dev/null || echo '{}')
+    _LOGGED_IN=$(printf '%s' "$_AUTH_JSON" | jq -r '.logged_in // false')
+
+    if [ "$_LOGGED_IN" = "true" ]; then
       echo "SHIP_AUTH: logged_in"
+      _EMAIL=$(printf '%s' "$_AUTH_JSON" | jq -r '.email // empty')
+      _DAYS=$(printf '%s' "$_AUTH_JSON" | jq -r '.days_remaining // empty')
+      [ -n "$_EMAIL" ] && echo "SHIP_USER: $_EMAIL"
+      if [ -n "$_DAYS" ] && [ "$_DAYS" -le 3 ]; then
+        echo "SHIP_TOKEN_EXPIRY: ${_DAYS} days — consider re-authenticating"
+      fi
     else
       echo "SHIP_AUTH: not_logged_in"
-      echo "ACTION_REQUIRED: Run 'ship auth login' before using /ship:$_SKILL_NAME."
+      echo "SHIP_LOGIN_CMD: ship auth login"
+      echo "SHIP_LOGIN_INLINE: Run inline with: ! ship auth login"
+      echo "SHIP_VERIFY_CMD: ship auth status --json"
     fi
   fi
 else

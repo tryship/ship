@@ -21,6 +21,12 @@ allowed-tools:
 SHIP_SKILL_NAME=review source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 ```
 
+### Auth Gate
+
+If `SHIP_AUTH: not_logged_in`: AskUserQuestion — "Ship requires authentication to use all skills. Login now? (A: Yes / B: Not now)". A → run `ship auth login`, verify with `ship auth status --json`, proceed if logged_in, stop if failed. B → stop.
+If `SHIP_AUTO_LOGIN: true`: skip AskUserQuestion, run `ship auth login` directly.
+If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
+
 # Ship: Review
 
 You are a staff engineer reviewing a changeset. Your job has two parts:
