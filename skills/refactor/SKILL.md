@@ -1,6 +1,6 @@
 ---
 name: ship-refactor
-version: 0.5.0
+version: 0.6.0
 description: >
   Diagnose structural misalignment, write a refactor contract, then hand off
   to auto for execution. Use when adding or changing features feels harder
@@ -72,9 +72,10 @@ digraph refactor {
     "Classify input" [shape=diamond];
     "Directive: validate + enumerate preserved behavior" [shape=box];
     "Feature-prep: trace blocker + minimal prerequisite refactor" [shape=box];
-    "Rescue: scan signals + rank + propose target skeleton" [shape=box];
+    "Rescue: scan signals + rank" [shape=box];
     "Not-structural: redirect to auto/debug" [shape=box];
-    "Boundary test on every proposed module" [shape=diamond];
+    "Trace dependency graph" [shape=box, style=bold];
+    "Propose target + inline Boundary Test" [shape=box];
     "Write plan/spec.md contract" [shape=box];
     "Hand off to auto" [shape=doublecircle];
     "STOP: NEEDS_CONTEXT" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
@@ -84,16 +85,17 @@ digraph refactor {
     "Setup (create task dir)" -> "Classify input";
     "Classify input" -> "Directive: validate + enumerate preserved behavior" [label="clear structural action"];
     "Classify input" -> "Feature-prep: trace blocker + minimal prerequisite refactor" [label="next feature named"];
-    "Classify input" -> "Rescue: scan signals + rank + propose target skeleton" [label="messy / too big / hard to change"];
+    "Classify input" -> "Rescue: scan signals + rank" [label="messy / too big / hard to change"];
     "Classify input" -> "Not-structural: redirect to auto/debug" [label="bug / perf / runtime issue"];
-    "Directive: validate + enumerate preserved behavior" -> "Boundary test on every proposed module";
-    "Feature-prep: trace blocker + minimal prerequisite refactor" -> "Boundary test on every proposed module";
+    "Directive: validate + enumerate preserved behavior" -> "Trace dependency graph";
+    "Feature-prep: trace blocker + minimal prerequisite refactor" -> "Trace dependency graph";
     "Feature-prep: trace blocker + minimal prerequisite refactor" -> "STOP: NOT_STRUCTURAL" [label="no structural prerequisite"];
-    "Rescue: scan signals + rank + propose target skeleton" -> "Boundary test on every proposed module";
-    "Rescue: scan signals + rank + propose target skeleton" -> "STOP: NEEDS_CONTEXT" [label="no structural contradiction found"];
+    "Rescue: scan signals + rank" -> "Trace dependency graph";
+    "Rescue: scan signals + rank" -> "STOP: NEEDS_CONTEXT" [label="no structural contradiction found"];
     "Not-structural: redirect to auto/debug" -> "STOP: NOT_STRUCTURAL";
-    "Boundary test on every proposed module" -> "Write plan/spec.md contract" [label="pass"];
-    "Boundary test on every proposed module" -> "STOP: NEEDS_CONTEXT" [label="target still fuzzy"];
+    "Trace dependency graph" -> "Propose target + inline Boundary Test";
+    "Propose target + inline Boundary Test" -> "Write plan/spec.md contract" [label="all modules pass"];
+    "Propose target + inline Boundary Test" -> "STOP: NEEDS_CONTEXT" [label="target still fuzzy"];
     "Write plan/spec.md contract" -> "Hand off to auto";
 }
 ```
@@ -108,21 +110,23 @@ digraph refactor {
 ## Hard Rules
 
 1. Classify before diagnosing. Match depth to the user's actual request.
-2. Every diagnosis must be backed by code evidence you read. Rescue mode never asks the user to invent architecture vocabulary for you.
-3. Enumerate critical behaviors to preserve from the existing code. Do not assume them.
-4. Every proposed module boundary must pass the Boundary Test before you write the final contract.
-5. Counterfactual checks and git history are optional confidence tools, not required gates.
-6. Do not implement, review, or verify. Hand off to auto.
-7. Do not create `refactor/` directories. Write to `plan/spec.md`.
+2. Every claim must be backed by code you personally read. Comments about other files are not evidence — read the file or do not cite it. Rescue mode never asks the user to invent architecture vocabulary for you.
+3. Enumerate critical behaviors to preserve from the existing code. Do not assume them. If no test suite exists, state that explicitly in both preserved behaviors and migration constraints.
+4. Trace the dependency graph of the affected code BEFORE proposing any target structure. You cannot design good boundaries without knowing how data and control actually flow.
+5. Every proposed module boundary must pass the Boundary Test during drafting, not as a post-hoc check.
+6. Counterfactual checks and git history are optional confidence tools, not required gates.
+7. Do not implement, review, or verify. Hand off to auto.
+8. Do not create `refactor/` directories. Write to `plan/spec.md`.
 
 ## Quality Gates
 
 | Gate | Condition | Fail action |
 |------|-----------|-------------|
 | Classify -> Diagnose | Input type determined | AskUserQuestion only if the target feature or scope is genuinely unclear |
-| Diagnose -> Spec | Primary contradiction identified, structural signals ranked, concrete target module map drafted | Adjust depth, narrow scope, or report NEEDS_CONTEXT / NOT_STRUCTURAL |
-| Spec -> Auto | Contract includes goal, preserved behaviors, risk tier, contradiction, signals, module map, what gets easier after, migration constraints, non-goals | Revise spec |
-| Spec -> Auto | Every proposed module passes the Boundary Test | Revise target structure |
+| Diagnose -> Investigate | Primary contradiction identified with code evidence | Adjust depth, narrow scope, or report NEEDS_CONTEXT / NOT_STRUCTURAL |
+| Investigate -> Target | Dependency graph of affected code traced, data/control flow understood | Re-read code, trace further |
+| Target -> Spec | Every proposed module passes the Boundary Test (applied inline during drafting) | Revise target structure |
+| Spec -> Auto | Contract includes all 9 sections; preserved behaviors cite file:line; missing tests stated in both preserved behaviors and constraints | Revise spec |
 
 ---
 
@@ -163,8 +167,12 @@ and turn it into a contract.
 1. **Read the code** the user pointed at. Understand the existing responsibilities and dependency edges.
 2. **Validate the directive** - does the move create a clearer owner, or does it just move the same coupling elsewhere?
 3. **Enumerate critical behaviors to preserve** from actual code paths, public interfaces, side effects, and error behavior.
-4. **Draft the target module map** implied by the directive.
-5. **Run the Boundary Test** on each proposed module.
+4. **Trace the dependency graph** between the code being moved and everything it touches:
+   - What does this code import? What imports it?
+   - What data flows in and out?
+   - Which dependencies belong to the extracted module vs the original?
+   Dependencies must flow from high-level modules toward low-level modules, never the reverse.
+5. **Draft the target module map** implied by the directive, applying the Boundary Test to each module as you draft it. If a proposed module fails any criterion, revise before continuing.
 6. **If valid** -> write the contract in Phase 4.
 7. **If questionable** -> tell the user what you found and suggest a better structural move. Do not silently override.
 
@@ -186,10 +194,14 @@ The feature matters. The refactor exists only to unblock it.
    - configuration seams
    - outward interfaces
 3. **Identify the blocker** - what current boundary or hardcoded assumption makes the feature expensive or dangerous?
-4. **Diagnose the minimal structural change** needed to unblock the feature. Spec the refactor, not the feature.
+4. **Diagnose the minimal structural change** needed to unblock the feature. Spec the refactor, not the feature. "Minimal" means fewest boundary violations, not fewest modules.
 5. **Enumerate critical behaviors to preserve** while the boundary shifts.
-6. **Draft a target module map** that creates the missing seam without broad cleanup.
-7. **Run the Boundary Test** on each proposed module.
+6. **Trace the dependency graph** of the code that must change:
+   - Map imports, function calls, and data flow between the affected modules.
+   - Identify which layer owns which concern (e.g., HTTP handling, business logic, data access).
+   - Dependencies must flow from high-level toward low-level. If a proposed module in a low-level layer (e.g., data access) would import from a high-level layer (e.g., HTTP middleware), the boundary is wrong.
+7. **Draft a target module map** that creates the missing seam without broad cleanup. Apply the Boundary Test to each module as you draft it. Each proposed module must own exactly one independent reason to change — if two unrelated features would both modify the same module, split it.
+8. **If no structural prerequisite exists** (the feature can be built without boundary changes), report `NOT_STRUCTURAL`.
 
 Optional confidence boost:
 - If a recent attempt or commit shows the same blocker recurring, include it as supporting evidence.
@@ -240,26 +252,41 @@ Do not optimize for "biggest file" alone. Optimize for future leverage.
 Optional confidence boost:
 - Counterfactual check: imagine the next likely change under the proposed skeleton. If it still crosses the same knot, revise the contradiction or the target map.
 
-#### Step 4: Propose a concrete target skeleton
+#### Step 4: Trace the dependency graph
 
-Turn the winning diagnosis into a file/module map:
+**This is the step that prevents bad target structures. Do not skip it.**
+
+Before proposing any modules, map how the affected code actually connects:
+
+1. **Trace imports and calls.** For each file in the contradiction's blast radius, list what it imports, what imports it, and what functions cross file boundaries. Use Grep to find all import/require/from statements and all call sites.
+2. **Map data flow.** Where does data enter the system? How does it transform as it passes through functions? Where does it exit (to DB, API, UI)?
+3. **Identify layers.** Which code handles external interfaces (HTTP, CLI, UI events)? Which handles business/domain logic? Which handles data access or infrastructure? Label each responsibility you found in Step 2.
+4. **Check dependency direction.** Dependencies should flow from high-level (presentation, routing) toward low-level (data access, utilities), never the reverse. If you see data access importing from HTTP handling, flag it.
+5. **Verify every claim with code you read.** If a file references duplication in other files, read those files. If you cannot read them, do not claim the signal.
+
+Record your findings — they become the evidence for the target module map.
+
+#### Step 5: Propose a concrete target skeleton
+
+Turn the diagnosis + dependency graph into a file/module map. Apply the Boundary Test to each module **as you draft it**, not afterward:
 
 1. Name concrete modules or files.
-2. Give each a distinct owner responsibility.
-3. State key dependency directions.
+2. For each module, state one distinct reason-to-change. If you can name two independent features that would both modify this module for unrelated reasons, it is too broad — split it.
+3. Verify dependency direction: no module in a lower layer (data, infrastructure) depends on a module in a higher layer (presentation, routing). Data flows down through parameters, not up through imports.
 4. Keep the change minimal enough that auto can migrate incrementally.
 
-#### Step 5: Run the Boundary Test
+#### Step 6: Boundary Test (applied inline, not as a separate gate)
 
-Every proposed module must pass all three:
+Every proposed module must pass all four:
 
-1. **Distinct reason-to-change** - does this module own one coherent type of change?
+1. **Distinct reason-to-change** - can you name exactly one type of change this module owns? If two unrelated features would both modify it, split it.
 2. **Understandable from the outside** - can someone understand what it owns without reading internals?
-3. **Cheaper next change** - does this boundary reduce files touched for the next likely change?
+3. **Correct dependency direction** - does this module only depend on modules at the same or lower level? A data-access module must not import from a routing module.
+4. **Cheaper next change** - does this boundary reduce files touched for the next likely change?
 
-If a boundary only forwards complexity elsewhere, reject it and revise.
+If a boundary only forwards complexity elsewhere, or inverts the dependency direction, reject it and revise.
 
-#### Step 6: Decide outcome
+#### Step 7: Decide outcome
 
 - **Structural contradiction confirmed** -> write the contract in Phase 4.
 - **Pain is real but not structural** -> report `NOT_STRUCTURAL`.
@@ -301,9 +328,9 @@ Use this format:
 [One sentence describing what structural outcome this refactor achieves]
 
 ## Critical Behaviors to Preserve
-1. [Observed behavior from current code]
-2. [Observed side effect / contract / error behavior from current code]
-3. [If needed] No test suite - plan must add characterization tests first
+1. [Observed behavior from current code — cite file:line]
+2. [Observed side effect / contract / error behavior — cite file:line]
+3. [REQUIRED if no test suite] No test suite - plan must add characterization tests before structural edits
 
 ## Risk Tier
 [low | medium | high]
@@ -448,12 +475,17 @@ Report one of:
 - Lack of counterfactual proof (optional confidence, not gate)
 
 <Bad>
+- **PROPOSING A TARGET STRUCTURE WITHOUT TRACING THE DEPENDENCY GRAPH FIRST** - the #1 failure mode
+- Citing code comments about other files as evidence without reading those files
+- Proposing a module where two unrelated features would both need to modify it (too broad)
+- Letting a low-level module (data access) depend on a high-level module (HTTP/routing) — dependency inversion
+- Applying the Boundary Test as a post-hoc gate instead of inline during drafting
+- Omitting "no test suite" from Critical Behaviors when tests are missing
 - Asking the user to explain the structural pain when rescue mode can read the code directly
 - Treating a feature request as the refactor itself instead of diagnosing the prerequisite boundary change
 - Writing the contract without reading the actual code
 - Ranking rescue candidates by file size alone instead of future-change leverage
 - Proposing abstract modules with no concrete file/module map
-- Letting a proposed module fail the Boundary Test
 - Writing preserved behaviors from assumptions instead of observed code paths
 - Treating git history or counterfactual validation as mandatory
 - Reporting "cleaner architecture" instead of concrete post-refactor advantages
