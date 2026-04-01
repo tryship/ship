@@ -111,7 +111,7 @@ digraph refactor {
 
 1. Classify before diagnosing. Match depth to the user's actual request.
 2. Every claim must be backed by code you personally read. Comments about other files are not evidence — read the file or do not cite it. Rescue mode never asks the user to invent architecture vocabulary for you.
-3. Enumerate critical behaviors to preserve from the existing code. Do not assume them. If no test suite exists, state that explicitly in both preserved behaviors and migration constraints.
+3. Enumerate critical behaviors to preserve from the existing code. Do not assume them. Check for existing test files (grep for test directories, *.test.*, *.spec.*). State actual coverage in both preserved behaviors and migration constraints — what IS tested and what IS NOT.
 4. Trace the dependency graph of the affected code BEFORE proposing any target structure. You cannot design good boundaries without knowing how data and control actually flow.
 5. Every proposed module boundary must pass the Boundary Test during drafting, not as a post-hoc check.
 6. Counterfactual checks and git history are optional confidence tools, not required gates.
@@ -136,9 +136,6 @@ Generate task_id:
 ```bash
 TASK_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/task-id.sh "<description>")
 ```
-
-Artifacts go to `.ship/tasks/$TASK_ID/plan/`. The Write tool creates
-directories automatically - no mkdir needed.
 
 Output: `[Refactor] Task "<title>" created (task_id: <task_id>).`
 
@@ -286,6 +283,8 @@ Every proposed module must pass all four:
 
 If a boundary only forwards complexity elsewhere, inverts the dependency direction, or bundles unrelated domains into one module, reject it and revise.
 
+**Second-pass check:** After drafting the full target map, re-read each module's "Owns" column. For any module that lists 2+ activities joined by "and" or commas, ask: would changing one activity force you to understand the other? If not, they belong in separate modules. This catches broad modules that slip through on the first pass.
+
 #### Step 7: Decide outcome
 
 - **Structural contradiction confirmed** -> write the contract in Phase 4.
@@ -319,7 +318,7 @@ Before finalizing the contract:
 1. Re-check every proposed module against the Boundary Test.
 2. Enumerate preserved behaviors from real code, not assumptions.
 3. Set risk tier based on blast radius, test coverage, and migration surface.
-4. If there is no test suite or no reliable safety net, state that explicitly in both preserved behaviors and migration constraints.
+4. Check for test files before writing the contract. State actual coverage — what IS tested and what IS NOT — in both preserved behaviors and migration constraints. Never claim "no test suite" without verifying.
 
 Use this format:
 
@@ -330,7 +329,7 @@ Use this format:
 ## Critical Behaviors to Preserve
 1. [Observed behavior from current code — cite file:line]
 2. [Observed side effect / contract / error behavior — cite file:line]
-3. [REQUIRED if no test suite] No test suite - plan must add characterization tests before structural edits
+3. [REQUIRED] Test coverage: state what IS tested and what IS NOT. Check for test files before claiming "no test suite." If partial coverage exists, name which functions/modules are covered and which are not. Untested code in the blast radius must have characterization tests added before structural edits.
 
 ## Risk Tier
 [low | medium | high]
@@ -363,7 +362,7 @@ Use this format:
 - [A current cross-cutting edit becomes local]
 
 ## Migration Constraints
-- [No test suite - add characterization tests before structural edits]
+- [State actual test coverage: which modules/functions are tested, which are not. Add characterization tests for untested code in the blast radius before structural edits]
 - [Split incrementally, do not rewrite in one pass]
 - [High-risk edge: validate each slice before the next]
 
@@ -416,16 +415,6 @@ Use `[Refactor]` prefix:
 [Refactor] Contract written. Handing off to auto...
 ```
 
-```text
-[Refactor] Task "rescue-dashboard-monolith" created.
-[Refactor] Input type: rescue
-[Refactor] Structural signals: Dashboard.tsx (1184 lines, UI + fetch + transforms), auth guard duplicated in 4 routes, session store mutated from 6 files
-[Refactor] Main contradiction: dashboard page owns both rendering and application orchestration
-[Refactor] Target skeleton: page -> view model hook -> service -> schema
-[Refactor] Risk tier: high (no test suite, shared mutable session state)
-[Refactor] Contract written. Handing off to auto...
-```
-
 ## Artifacts
 
 ```text
@@ -438,17 +427,6 @@ Use `[Refactor]` prefix:
   qa/qa.md        <- auto writes
   simplify.md     <- auto writes
 ```
-
-The contract in `spec.md` uses the unified format:
-- Goal
-- Critical Behaviors to Preserve
-- Risk Tier
-- Primary Contradiction
-- Structural Signals Found
-- Target Module Map
-- What Gets Easier After
-- Migration Constraints
-- Non-goals
 
 ## Error Handling
 
@@ -488,7 +466,7 @@ Report one of:
 - Proposing a module where two unrelated features would both need to modify it — regardless of what the module is named ("service", "manager", "handler" are just as suspect as "repository" or "utils")
 - Letting a low-level module (data access) depend on a high-level module (HTTP/routing) — dependency inversion
 - Applying the Boundary Test as a post-hoc gate instead of inline during drafting
-- Omitting "no test suite" from Critical Behaviors when tests are missing
+- Claiming "no test suite" without checking for test files — partial coverage is not zero coverage
 - Asking the user to explain the structural pain when rescue mode can read the code directly
 - Treating a feature request as the refactor itself instead of diagnosing the prerequisite boundary change
 - Writing the contract without reading the actual code
