@@ -271,7 +271,7 @@ Record your findings — they become the evidence for the target module map.
 Turn the diagnosis + dependency graph into a file/module map. Apply the Boundary Test to each module **as you draft it**, not afterward:
 
 1. Name concrete modules or files.
-2. For each module, state one distinct reason-to-change. If you can name two independent features that would both modify this module for unrelated reasons, it is too broad — split it.
+2. For each module, state one distinct reason-to-change. If you can name two independent features that would both modify this module for unrelated reasons, it is too broad — split it. A module named "repository" or "utils" that serves multiple unrelated domains (e.g., users + projects + reports) is always too broad.
 3. Verify dependency direction: no module in a lower layer (data, infrastructure) depends on a module in a higher layer (presentation, routing). Data flows down through parameters, not up through imports.
 4. Keep the change minimal enough that auto can migrate incrementally.
 
@@ -279,12 +279,12 @@ Turn the diagnosis + dependency graph into a file/module map. Apply the Boundary
 
 Every proposed module must pass all four:
 
-1. **Distinct reason-to-change** - can you name exactly one type of change this module owns? If two unrelated features would both modify it, split it.
+1. **Distinct reason-to-change** - can you name exactly one type of change this module owns? If two unrelated features would both modify it, split it. Anti-pattern: a single "repository" or "utils" module that owns queries/helpers for multiple unrelated domains (users, projects, billing) — changing the user schema should not require opening the same file as changing billing logic.
 2. **Understandable from the outside** - can someone understand what it owns without reading internals?
 3. **Correct dependency direction** - does this module only depend on modules at the same or lower level? A data-access module must not import from a routing module.
 4. **Cheaper next change** - does this boundary reduce files touched for the next likely change?
 
-If a boundary only forwards complexity elsewhere, or inverts the dependency direction, reject it and revise.
+If a boundary only forwards complexity elsewhere, inverts the dependency direction, or bundles unrelated domains into one module, reject it and revise.
 
 #### Step 7: Decide outcome
 
