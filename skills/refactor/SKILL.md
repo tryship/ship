@@ -10,6 +10,7 @@ description: >
 allowed-tools:
   - Bash
   - Read
+  - Write
   - Grep
   - Glob
   - Agent
@@ -87,6 +88,7 @@ digraph refactor {
     "Classify input" -> "Not-structural: redirect to auto/debug" [label="bug / perf / runtime issue"];
     "Directive: validate + enumerate preserved behavior" -> "Boundary test on every proposed module";
     "Feature-prep: trace blocker + minimal prerequisite refactor" -> "Boundary test on every proposed module";
+    "Feature-prep: trace blocker + minimal prerequisite refactor" -> "STOP: NOT_STRUCTURAL" [label="no structural prerequisite"];
     "Rescue: scan signals + rank + propose target skeleton" -> "Boundary test on every proposed module";
     "Rescue: scan signals + rank + propose target skeleton" -> "STOP: NEEDS_CONTEXT" [label="no structural contradiction found"];
     "Not-structural: redirect to auto/debug" -> "STOP: NOT_STRUCTURAL";
@@ -144,7 +146,7 @@ Read the user's request and classify:
 |------|--------|---------|----------------|
 | **Directive** | User gives a clear structural action | "extract auth into its own file", "split this file into 3" | Light - validate, enumerate preserved behavior, spec |
 | **Feature-prep** | User names a next feature that current structure will not support | "I need multi-tenant but DB access is hardcoded everywhere" | Medium - trace the blocker, spec the prerequisite refactor |
-| **Rescue** | User knows the structure is wrong but cannot articulate the crack | "my code is a mess", "this file is too big", "clean this up so I can keep building" | Full - scan code signals, rank, propose target skeleton |
+| **Rescue** | User knows the structure is wrong but cannot articulate the contradiction | "my code is a mess", "this file is too big", "clean this up so I can keep building" | Full - scan code signals, rank, propose target skeleton |
 | **Not-structural** | The pain is mainly behavioral, operational, or performance-related | "this function is slow", "tests are flaky", "this crashes in prod" | Redirect - auto or debug, not refactor |
 
 Output: `[Refactor] Input type: <directive|feature-prep|rescue|not-structural>`
@@ -202,7 +204,7 @@ Do not require the user to articulate the pain in engineering terms.
 
 #### Step 1: Scan for structural signals
 
-Look for the highest-leverage cracks first:
+Look for the highest-leverage signals first:
 
 1. **God files** - files over ~300 lines with mixed concerns (for example UI + data access + orchestration + config)
 2. **Duplication clusters** - repeated code blocks, conditionals, or data shaping spread across files
@@ -224,14 +226,14 @@ For each serious candidate:
 
 #### Step 3: Rank by impact
 
-Choose the crack that makes the most future change cheaper if resolved.
+Choose the signal that makes the most future change cheaper if resolved.
 
 Ask:
 
 1. Which signal causes the widest blast radius for ordinary changes?
 2. Which signal forces unrelated concerns to move together?
 3. Which signal, if fixed, would reduce the number of files touched for the next likely change?
-4. If multiple cracks exist, does fixing one make the others easier? If yes, that is the main contradiction.
+4. If multiple signals exist, does fixing one make the others easier? If yes, that is the main contradiction.
 
 Do not optimize for "biggest file" alone. Optimize for future leverage.
 
