@@ -382,8 +382,9 @@ Execution must follow this order. Each story is independently testable.
 1. **Move ownership**: create the seam, relocate code to new modules per the Target Module Map.
 2. **Consolidate**: merge duplicated logic into the new owner. Every signal marked "Eliminate" with duplication must be resolved in this story.
 3. **Clean up**: delete dead code, remove stale imports, remove empty re-exports made obsolete by the move.
+4. **Simplify**: for every file touched in Stories 1-3, reduce internal complexity. Reduce nesting, simplify conditionals, improve naming, inline trivial one-call wrappers. The goal is that each file is not just in the right place but also easier to read than before the refactor.
 
-If risk is high (no tests, large blast radius), Story 1 alone may be shipped as a standalone PR. But the spec must still contain Stories 2-3 as planned follow-ups — do not silently drop them.
+If risk is high (no tests, large blast radius), Story 1 alone may be shipped as a standalone PR. But the spec must still contain Stories 2-4 as planned follow-ups — do not silently drop them.
 
 ## What Gets Easier After
 - [The next likely change touches fewer files]
