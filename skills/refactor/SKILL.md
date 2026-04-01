@@ -138,7 +138,7 @@ For cross-file problems. Two sub-paths based on scope:
 
 **For both sub-paths, execute in this order:**
 
-1. **Verify**: run existing tests to establish baseline. If none and blast radius >5 files, write characterization tests first.
+1. **Verify**: run existing tests to establish baseline. If no tests cover the code being moved/changed, write characterization tests first — this is unconditional for structural refactors regardless of blast radius.
 2. **Move**: relocate code per Target Structure. Update imports. Run tests.
 3. **Consolidate**: merge duplicated logic per Eliminate list. Run tests.
 4. **Simplify**: apply surgical techniques to every touched file. Run tests.

@@ -20,6 +20,8 @@ Techniques are ordered by LLM reliability (best first).
 | Mixed Concerns in Function | One function doing two unrelated things | Split Phase | Separate into prepare + execute |
 | Flag Arguments | Boolean param that changes function behavior | Remove Flag Argument / Split into two functions | Each function does one thing |
 
+**Safety rule for signature-changing techniques** (Introduce Parameter Object, Remove Flag Argument, Split into two functions, Move Function): these change the function's calling interface. Only apply when the function is internal/private AND every caller is within the files you are editing. If the function is exported or has callers outside your scope, preserve the original signature — or skip the technique entirely.
+
 ## Structural Smells (cross-file, require execution card)
 
 | Smell | How to detect | Technique | Risk |
