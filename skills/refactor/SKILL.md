@@ -80,10 +80,12 @@ digraph refactor {
 1. Read the code before diagnosing. Every smell must cite file:line.
 2. Verify after every batch of changes. Tests, typecheck, or lint — whatever the repo has. If nothing: warn the user.
 3. If verification fails twice on the same change: revert and skip it. Do not force it.
-4. Never change external behavior. Same inputs, same outputs, same status codes.
-5. Check for test files before claiming "no tests." Partial coverage is not zero coverage.
-6. Do not refactor and add features at the same time.
-7. One structural seam per invocation. If multiple structural problems exist, fix the highest-leverage one and note the rest.
+4. **Never change external behavior.** Same inputs, same outputs, same status codes, same return shapes, same validation rules. This is the most important rule.
+5. **Never rewrite a function's internal logic.** You may delete unused functions, extract parts into new functions, rename, simplify conditionals, and add guard clauses — but the function must produce identical output for all inputs. If you are tempted to "improve" a function's logic (change a format, tighten validation, rename return fields), STOP — that is a behavior change, not a refactor.
+6. **Run existing tests before AND after changes.** If tests exist for the code you're touching, run them first to establish a baseline, then after each batch. If a test that passed before now fails, your change broke behavior — revert immediately.
+7. Check for test files before claiming "no tests." Partial coverage is not zero coverage.
+8. Do not refactor and add features at the same time.
+9. One structural seam per invocation. If multiple structural problems exist, fix the highest-leverage one and note the rest.
 
 ## Phase 1: Scan
 
