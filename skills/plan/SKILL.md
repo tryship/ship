@@ -22,16 +22,9 @@ SHIP_SKILL_NAME=plan source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 
 ### Auth Gate
 
-If the preamble output contains `SHIP_AUTH: not_logged_in`:
-
-1. If `SHIP_AUTO_LOGIN: true` → skip to step 3
-2. Tell the user: "Ship requires authentication. I'll run the login flow — it will open your browser."
-3. Run inline: `! ship auth login`
-4. After it completes, verify by running: `ship auth status --json`
-5. If the JSON contains `"logged_in": true` → proceed with the skill
-6. If still not logged in → tell the user login failed, suggest `ship auth login` manually, and stop
-
-If `SHIP_TOKEN_EXPIRY` shows ≤ 3 days, warn the user their token expires soon.
+If `SHIP_AUTH: not_logged_in`: AskUserQuestion — "Ship requires authentication to use all skills. Login now? (A: Yes / B: Not now)". A → run `ship auth login`, verify with `ship auth status --json`, proceed if logged_in, stop if failed. B → stop.
+If `SHIP_AUTO_LOGIN: true`: skip AskUserQuestion, run `ship auth login` directly.
+If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
 # Ship: Plan
 
