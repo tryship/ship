@@ -1,12 +1,12 @@
 ---
 name: ship-refactor
-version: 0.4.0
+version: 0.5.0
 description: >
-  Diagnose structural misalignment, write a refactor spec, then hand off
+  Diagnose structural misalignment, write a refactor contract, then hand off
   to auto for execution. Use when adding or changing features feels harder
-  than it should — concept boundaries that no longer match usage, change
-  directions that cut across modules, hidden coupling, or AI-generated
-  code that lacks intentional structure.
+  than it should, when a specific next feature is blocked by the current
+  structure, or when AI-generated code works but has no intentional
+  boundaries.
 allowed-tools:
   - Bash
   - Read
@@ -24,36 +24,41 @@ SHIP_SKILL_NAME=ship-refactor source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
 
 # Ship: Refactor
 
-Diagnose the structural crack, write a spec, hand off to auto.
+Diagnose the structural contradiction, write a contract, hand off to auto.
 
-Refactor's only job is diagnosis — understanding WHY the current
-structure causes friction. Everything else (plan, implement, review,
-verify, QA, handoff) is auto's job. The diagnosis is written to
-`plan/spec.md`, the same artifact auto reads. No special mode,
-no separate directory, no pipeline changes.
+Refactor's only job is diagnosis and contract writing - understanding WHY
+the current structure makes the next change harder than it should be, then
+declaring the boundary change required to fix that. Everything else (plan,
+implement, review, verify, QA, handoff) is auto's job. The diagnosis is
+written to `plan/spec.md`, the same artifact auto reads. No special mode,
+no separate directory, no parallel pipeline.
 
 ## Principal Contradiction
 
-**The code's structural boundaries vs the change patterns they must serve.**
+**The code's current boundaries vs the next changes the team needs to make.**
 
-Structure fails not because code "looks messy" but because its boundaries
-force unnecessary coupling, indirection, or cross-cutting when the team
-works on real tasks. The adversary is the gap between how code is organized
-and how it is actually used. Diagnosis reveals the gap; restructuring
-closes it.
+Structure fails when the code is organized around yesterday's accidents
+instead of tomorrow's changes. The adversary is not "messiness" in the
+abstract. The adversary is a boundary layout that forces unrelated concerns
+to move together, hides ownership, or turns a simple next feature into a
+cross-cutting edit. Diagnosis names the contradiction. The contract states
+the boundary shift that resolves it.
 
 ## Core Principle
 
 ```
-CLASSIFY FIRST, THEN DIAGNOSE AT THE RIGHT DEPTH.
-DIAGNOSIS IS THE ONLY THING REFACTOR DOES.
-EVERYTHING ELSE IS AUTO'S JOB.
+CLASSIFY FIRST.
+SPEC THE STRUCTURAL CONTRACT, NOT THE IMPLEMENTATION.
+PROPOSE BOUNDARIES THAT MAKE THE NEXT LIKELY CHANGE CHEAPER.
+AUTO OWNS EXECUTION.
 ```
 
-Not every refactor needs deep diagnosis. A user who says "extract auth
-from UserService" already has the answer. A user who says "this code
-is a mess" needs help finding the question. Match diagnosis depth to
-what the user actually needs.
+Not every refactor needs the same depth. A user who says "extract auth into
+its own file" has already chosen the move. A user who says "I need multi-tenant
+support but everything is hardcoded" needs feature-prep diagnosis. A user who
+says "my code is a mess" needs rescue-grade analysis from code signals, not
+questions they cannot answer. Match the depth to the request. Keep execution
+out of scope.
 
 ## Process Flow
 
@@ -64,23 +69,30 @@ digraph refactor {
     "Start" [shape=doublecircle];
     "Setup (create task dir)" [shape=box];
     "Classify input" [shape=diamond];
-    "Directive: validate + write spec" [shape=box];
-    "Area: focused diagnosis" [shape=box];
-    "Pain/Vague: full diagnosis" [shape=box];
-    "Write plan/spec.md" [shape=box];
+    "Directive: validate + enumerate preserved behavior" [shape=box];
+    "Feature-prep: trace blocker + minimal prerequisite refactor" [shape=box];
+    "Rescue: scan signals + rank + propose target skeleton" [shape=box];
+    "Not-structural: redirect to auto/debug" [shape=box];
+    "Boundary test on every proposed module" [shape=diamond];
+    "Write plan/spec.md contract" [shape=box];
     "Hand off to auto" [shape=doublecircle];
     "STOP: NEEDS_CONTEXT" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
+    "STOP: NOT_STRUCTURAL" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
 
     "Start" -> "Setup (create task dir)";
     "Setup (create task dir)" -> "Classify input";
-    "Classify input" -> "Directive: validate + write spec" [label="user gave\nclear action"];
-    "Classify input" -> "Area: focused diagnosis" [label="user pointed\nto area"];
-    "Classify input" -> "Pain/Vague: full diagnosis" [label="user has pain\nor vague feeling"];
-    "Directive: validate + write spec" -> "Write plan/spec.md";
-    "Area: focused diagnosis" -> "Write plan/spec.md";
-    "Pain/Vague: full diagnosis" -> "Write plan/spec.md";
-    "Pain/Vague: full diagnosis" -> "STOP: NEEDS_CONTEXT" [label="no crack found"];
-    "Write plan/spec.md" -> "Hand off to auto";
+    "Classify input" -> "Directive: validate + enumerate preserved behavior" [label="clear structural action"];
+    "Classify input" -> "Feature-prep: trace blocker + minimal prerequisite refactor" [label="next feature named"];
+    "Classify input" -> "Rescue: scan signals + rank + propose target skeleton" [label="messy / too big / hard to change"];
+    "Classify input" -> "Not-structural: redirect to auto/debug" [label="bug / perf / runtime issue"];
+    "Directive: validate + enumerate preserved behavior" -> "Boundary test on every proposed module";
+    "Feature-prep: trace blocker + minimal prerequisite refactor" -> "Boundary test on every proposed module";
+    "Rescue: scan signals + rank + propose target skeleton" -> "Boundary test on every proposed module";
+    "Rescue: scan signals + rank + propose target skeleton" -> "STOP: NEEDS_CONTEXT" [label="no structural crack found"];
+    "Not-structural: redirect to auto/debug" -> "STOP: NOT_STRUCTURAL";
+    "Boundary test on every proposed module" -> "Write plan/spec.md contract" [label="pass"];
+    "Boundary test on every proposed module" -> "STOP: NEEDS_CONTEXT" [label="target still fuzzy"];
+    "Write plan/spec.md contract" -> "Hand off to auto";
 }
 ```
 
@@ -93,19 +105,22 @@ digraph refactor {
 
 ## Hard Rules
 
-1. Classify before diagnosing. Match depth to input.
-2. Every claim in the diagnosis must be backed by code evidence you read.
-3. The spec must include "behavior must not change" as an acceptance criterion.
-4. Do not implement, review, or verify. Hand off to auto.
-5. Do not create `refactor/` directories. Write to `plan/spec.md`.
+1. Classify before diagnosing. Match depth to the user's actual request.
+2. Every diagnosis must be backed by code evidence you read. Rescue mode never asks the user to invent architecture vocabulary for you.
+3. Enumerate critical behaviors to preserve from the existing code. Do not assume them.
+4. Every proposed module boundary must pass the Boundary Test before you write the final contract.
+5. Counterfactual checks and git history are optional confidence tools, not required gates.
+6. Do not implement, review, or verify. Hand off to auto.
+7. Do not create `refactor/` directories. Write to `plan/spec.md`.
 
 ## Quality Gates
 
 | Gate | Condition | Fail action |
 |------|-----------|-------------|
-| Classify → Diagnose | Input type determined | AskUserQuestion |
-| Diagnose → Spec | Crack identified (or directive validated) | Adjust depth or NEEDS_CONTEXT |
-| Spec → Auto | Spec has acceptance criteria + "behavior must not change" | Revise spec |
+| Classify -> Diagnose | Input type determined | AskUserQuestion only if the target feature or scope is genuinely unclear |
+| Diagnose -> Spec | Primary contradiction identified, structural signals ranked, concrete target module map drafted | Adjust depth, narrow scope, or report NEEDS_CONTEXT / NOT_STRUCTURAL |
+| Spec -> Auto | Contract includes goal, preserved behaviors, risk tier, contradiction, signals, module map, what gets easier after, migration constraints, non-goals | Revise spec |
+| Spec -> Auto | Every proposed module passes the Boundary Test | Revise target structure |
 
 ---
 
@@ -117,7 +132,7 @@ TASK_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/task-id.sh "<description>")
 ```
 
 Artifacts go to `.ship/tasks/$TASK_ID/plan/`. The Write tool creates
-directories automatically — no mkdir needed.
+directories automatically - no mkdir needed.
 
 Output: `[Refactor] Task "<title>" created (task_id: <task_id>).`
 
@@ -127,12 +142,12 @@ Read the user's request and classify:
 
 | Type | Signal | Example | Diagnosis depth |
 |------|--------|---------|----------------|
-| **Directive** | User gives a clear structural action | "extract auth from UserService", "split this file into 3", "move utils to shared/" | Light — validate, then spec |
-| **Area** | User points to a location but not an action | "refactor the auth module", "refactor this file", "this file is too big" | Medium — focused diagnosis on that area |
-| **Pain** | User describes friction but not the cause | "every time I add an API I touch 5 files", "changing billing always breaks auth" | Full — 4-step diagnosis |
-| **Vague** | User has a feeling, no specifics | "this code is a mess", "refactor the codebase", "clean this up" | Full — but ask for pain first |
+| **Directive** | User gives a clear structural action | "extract auth into its own file", "split this file into 3" | Light - validate, enumerate preserved behavior, spec |
+| **Feature-prep** | User names a next feature that current structure will not support | "I need multi-tenant but DB access is hardcoded everywhere" | Medium - trace the blocker, spec the prerequisite refactor |
+| **Rescue** | User knows the structure is wrong but cannot articulate the crack | "my code is a mess", "this file is too big", "clean this up so I can keep building" | Full - scan code signals, rank, propose target skeleton |
+| **Not-structural** | The pain is mainly behavioral, operational, or performance-related | "this function is slow", "tests are flaky", "this crashes in prod" | Redirect - auto or debug, not refactor |
 
-Output: `[Refactor] Input type: <directive|area|pain|vague>`
+Output: `[Refactor] Input type: <directive|feature-prep|rescue|not-structural>`
 
 ---
 
@@ -140,189 +155,211 @@ Output: `[Refactor] Input type: <directive|area|pain|vague>`
 
 ### Path A: Directive (light)
 
-The user already knows what to do. Your job: validate it makes sense,
-then write the spec.
+The user already chose the move. Your job: validate it, surface risk,
+and turn it into a contract.
 
-1. **Read the code** the user is pointing at. Understand what exists.
-2. **Validate the action** — does the directive make structural sense?
-   Does it introduce new problems (circular deps, broken interfaces)?
-3. **If valid** → write spec (Phase 4) with the user's directive as
-   the target structure.
-4. **If questionable** → tell the user what you found, suggest
-   alternative. Do not silently override.
+1. **Read the code** the user pointed at. Understand the existing responsibilities and dependency edges.
+2. **Validate the directive** - does the move create a clearer owner, or does it just move the same coupling elsewhere?
+3. **Enumerate critical behaviors to preserve** from actual code paths, public interfaces, side effects, and error behavior.
+4. **Draft the target module map** implied by the directive.
+5. **Run the Boundary Test** on each proposed module.
+6. **If valid** -> write the contract in Phase 4.
+7. **If questionable** -> tell the user what you found and suggest a better structural move. Do not silently override.
 
-Output: `[Refactor] Directive validated. Writing spec...`
+Optional confidence boost:
+- If recent history clearly shows the directive reduces repeated co-change, note it in the contract.
+- If the proposed boundary would not make the next likely change cheaper in practice, the directive is incomplete. Revise it.
 
-### Path B: Area (medium)
+Output: `[Refactor] Directive validated. Writing contract...`
 
-The user pointed to a location. Diagnose what's wrong with it.
+### Path B: Feature-prep (medium)
 
-1. **Read the area** — the file(s) or module the user pointed at.
-2. **Trace last pain** — from the user's request or git history,
-   find the most recent change that was harder than it should have been:
-   ```bash
-   git log --since="3 months ago" --name-only --pretty=format:"%s" -- <area paths> | head -40
-   ```
-3. **Follow the pain** — pick the hardest recent change. Trace what
-   files it touched and why. What forced the cross-cutting?
-4. **Identify the crack** — why does this area's structure not match
-   how it's used?
-5. **Counterfactual check** — if this crack didn't exist, would the
-   last painful change have been simpler? If no → wrong crack, dig deeper.
+The feature matters. The refactor exists only to unblock it.
 
-Output: `[Refactor] Crack identified: <1-line summary>`
+1. **Understand the target feature** from the user's request. Ask only if the feature itself is unclear.
+2. **Trace the path that feature would need** through the current structure:
+   - entrypoints
+   - state ownership
+   - data model assumptions
+   - configuration seams
+   - outward interfaces
+3. **Identify the blocker** - what current boundary or hardcoded assumption makes the feature expensive or dangerous?
+4. **Diagnose the minimal structural change** needed to unblock the feature. Spec the refactor, not the feature.
+5. **Enumerate critical behaviors to preserve** while the boundary shifts.
+6. **Draft a target module map** that creates the missing seam without broad cleanup.
+7. **Run the Boundary Test** on each proposed module.
 
-### Path C: Pain / Vague (full)
+Optional confidence boost:
+- If a recent attempt or commit shows the same blocker recurring, include it as supporting evidence.
+- Counterfactual check: if the proposed seam still leaves the feature crossing the same boundary knot, revise the target map.
 
-The user has friction but doesn't know the structural cause.
+Output: `[Refactor] Feature blocker identified: <1-line summary>`
 
-**If vague**: first ask via AskUserQuestion:
-> What specific task felt harder than it should have been recently?
+### Path C: Rescue (full)
 
-Then proceed with the full diagnosis:
+The user knows the codebase feels wrong. You diagnose it from the code.
+Do not require the user to articulate the pain in engineering terms.
 
-#### Step 1: Trace the last painful change
+#### Step 1: Scan for structural signals
 
-Don't map abstract structure. Start from a **concrete instance** of the pain:
+Look for the highest-leverage cracks first:
 
-> User says "every time I add an API I touch 5 files"
-> → "Show me the last API you added. Which commit?"
-> → Or find it: `git log --all --oneline --grep="add.*endpoint\|add.*api\|new.*route" | head -10`
+1. **God files** - files over ~300 lines with mixed concerns (for example UI + data access + orchestration + config)
+2. **Duplication clusters** - repeated code blocks, conditionals, or data shaping spread across files
+3. **Import fan-in / fan-out** - files everything depends on, or files that depend on everything
+4. **Mixed responsibilities** - one file or module owning unrelated reasons to change
+5. **Global/shared mutable state** - state written from many places without clear ownership
+6. **Dead or unreachable code** - exports never imported, functions never called, stale compatibility layers
 
-Read that commit. Trace exactly which files changed and why each
-one had to change.
+Use static evidence first. Git history is useful when available but never required.
 
-#### Step 2: Trace the dependency chain
+#### Step 2: Read the top candidates
 
-From the painful change, trace backward and forward:
+For each serious candidate:
 
-1. **Why did file A have to change?** → because it imports X from file B
-2. **Why does file A import X?** → because the boundary forces this dependency
-3. **Could file A have avoided this change?** → only if the boundary were different
+1. Read the file(s), not just filenames and sizes.
+2. Name the mixed responsibilities or dependency knots you actually see.
+3. Trace enough neighboring imports/callers to understand why the boundary is wrong.
+4. Capture the behaviors that must survive any split.
 
-Trace at least 2 levels in each direction. Use Grep to find all
-import/dependency connections.
+#### Step 3: Rank by impact
 
-#### Step 3: Analyze patterns (is this one-off or systemic?)
+Choose the crack that makes the most future change cheaper if resolved.
 
-```bash
-# Do these files always change together?
-git log --since="3 months ago" --name-only --pretty=format:"---" -- <files from step 1> \
-  | awk '/^---$/{if(NR>1)print ""; next}{printf "%s ",$0}' \
-  | sort | uniq -c | sort -rn | head -10
-```
+Ask:
 
-If the co-change pattern is consistent → systemic structural issue.
-If it's a one-off → maybe not worth a refactor.
+1. Which signal causes the widest blast radius for ordinary changes?
+2. Which signal forces unrelated concerns to move together?
+3. Which signal, if fixed, would reduce the number of files touched for the next likely change?
+4. If multiple cracks exist, does fixing one make the others easier? If yes, that is the main contradiction.
 
-#### Step 4: Identify the crack + counterfactual
+Do not optimize for "biggest file" alone. Optimize for future leverage.
 
-Synthesize into a diagnosis:
+Optional confidence boost:
+- Counterfactual check: imagine the next likely change under the proposed skeleton. If it still crosses the same knot, revise the contradiction or the target map.
 
-> The pain is [PAIN]. This happens because [STRUCTURAL CAUSE].
-> Specifically, [CURRENT BOUNDARY] forces [UNNECESSARY COUPLING]
-> when the actual change pattern is [OBSERVED PATTERN].
+#### Step 4: Propose a concrete target skeleton
 
-**Counterfactual check**: if this crack didn't exist (structure were
-ideal), would the painful change in Step 1 have been simpler?
-If yes → crack confirmed. If no → wrong crack, go back to Step 2.
+Turn the winning diagnosis into a file/module map:
 
-#### Step 5: Multiple cracks? Find the main contradiction
+1. Name concrete modules or files.
+2. Give each a distinct owner responsibility.
+3. State key dependency directions.
+4. Keep the change minimal enough that auto can migrate incrementally.
 
-If multiple structural issues surface, determine priority:
+#### Step 5: Run the Boundary Test
 
-> Does fixing crack A also resolve or ease crack B?
-> Does fixing crack B also resolve or ease crack A?
+Every proposed module must pass all three:
 
-If A→B but not B→A, then A is the main contradiction. Fix A first.
+1. **Distinct reason-to-change** - does this module own one coherent type of change?
+2. **Understandable from the outside** - can someone understand what it owns without reading internals?
+3. **Cheaper next change** - does this boundary reduce files touched for the next likely change?
 
-**If you cannot identify a concrete structural cause, STOP.**
-Escalate NEEDS_CONTEXT: the pain may not be structural, or more
-information is needed.
+If a boundary only forwards complexity elsewhere, reject it and revise.
 
-Output: `[Refactor] Crack identified: <1-line summary>`
+#### Step 6: Decide outcome
+
+- **Structural crack confirmed** -> write the contract in Phase 4.
+- **Pain is real but not structural** -> report `NOT_STRUCTURAL`.
+- **No credible target skeleton yet** -> report `NEEDS_CONTEXT`.
+
+Output: `[Refactor] Rescue target identified: <1-line summary>`
+
+### Path D: Not-structural
+
+This skill is not the right tool when the core issue is behavior, runtime
+correctness, performance, data quality, or flaky tests.
+
+Redirect:
+
+- `ship-auto` when the user needs a scoped fix or change
+- debugging workflow when the user needs root-cause analysis of broken behavior
+
+Output: `[Refactor] Not structural. Redirecting to auto/debug.`
 
 ## Phase 4: Write Spec
 
 Write to `.ship/tasks/<task_id>/plan/spec.md`.
 
-### For Directive path:
+This is a **refactor contract**, not an implementation plan. It declares
+what structural change must happen, what must stay true, and what safety
+constraints auto/plan/dev must honor.
+
+Before finalizing the contract:
+
+1. Re-check every proposed module against the Boundary Test.
+2. Enumerate preserved behaviors from real code, not assumptions.
+3. Set risk tier based on blast radius, test coverage, and migration surface.
+4. If there is no test suite or no reliable safety net, state that explicitly in both preserved behaviors and migration constraints.
+
+Use this format:
 
 ```markdown
-## Task
-[The user's directive — what to extract/split/move]
+## Goal
+[One sentence describing what structural outcome this refactor achieves]
 
-## Current State
-[What exists now — file:line evidence from validation]
+## Critical Behaviors to Preserve
+1. [Observed behavior from current code]
+2. [Observed side effect / contract / error behavior from current code]
+3. [If needed] No test suite - plan must add characterization tests first
 
-## Target Structure
-[What it looks like after the directive is executed]
+## Risk Tier
+[low | medium | high]
+[1-3 sentences explaining why]
 
-## Acceptance Criteria
-- Behavior must not change — same inputs produce same outputs,
-  same side effects, same error behavior
-- [Structural criteria from the directive]
+## Primary Contradiction
+[What current boundary does not match the actual change pattern or next feature]
+
+## Structural Signals Found
+- [Concrete evidence, preferably with file:line references]
+- [God file / duplication / fan-in / mixed ownership / shared mutable state / dead code]
+
+## Target Module Map
+| Module | Owns | Depends On |
+|--------|------|------------|
+| [file/module] | [clear responsibility] | [upstream deps only] |
+| [file/module] | [clear responsibility] | [upstream deps only] |
+
+## What Gets Easier After
+- [The next likely change touches fewer files]
+- [A future feature gains a clean seam]
+- [A current cross-cutting edit becomes local]
+
+## Migration Constraints
+- [No test suite - add characterization tests before structural edits]
+- [Split incrementally, do not rewrite in one pass]
+- [High-risk edge: validate each slice before the next]
 
 ## Non-goals
 - No new features or behavior changes
-- No cleanup outside the directive's scope
-```
-
-### For Area / Pain / Vague paths:
-
-```markdown
-## Pain
-[What triggered this refactor — the concrete friction]
-
-## Current Structure
-[Dependency chain traced from the painful change — file:line evidence]
-
-## Change Patterns
-[Co-change analysis — systemic or one-off]
-
-## Crack
-[The structural cause — specific misalignment between boundaries and usage]
-
-## Target Structure
-[What the structure should look like — derived from the crack]
-
-## Acceptance Criteria
-- Behavior must not change — same inputs produce same outputs,
-  same side effects, same error behavior
-- [Structural criterion]: e.g. "Adding a new API endpoint touches
-  at most 2 files instead of 5"
-- [Structural criterion]: e.g. "Changes to billing do not require
-  changes to auth module"
-
-## Non-goals
-- No new features or behavior changes
-- No cosmetic cleanup outside the crack's blast radius
+- No cosmetic cleanup outside the diagnosed area
+- No boundary changes unrelated to the primary contradiction
 ```
 
 Criteria must be concrete and testable.
-NOT vague: "code is cleaner", "better separation of concerns".
+NOT vague: "cleaner", "better separation", "more scalable".
 
-Output: `[Refactor] Spec written. Handing off to auto...`
+Output: `[Refactor] Contract written. Handing off to auto...`
 
 ## Phase 5: Hand Off to Auto
 
 ```
 Agent(prompt="You MUST call Skill('ship-auto') as your first and only action.
-Task description: Refactor — <1-line crack summary>.
+Task description: Refactor - <1-line contradiction summary>.
 task_id: <task_id>
 task_dir: .ship/tasks/<task_id>
 
-Context: plan/spec.md already exists with a refactor diagnosis.
+Context: plan/spec.md already exists with a refactor contract.
 Auto should proceed to its Design phase, which will invoke plan.
-Plan will detect the existing spec.md and use it as input —
-it will produce plan.md without overwriting the diagnosis.")
+Plan will detect the existing spec.md and use it as input -
+it will produce plan.md without overwriting the contract.")
 ```
 
 What happens next (for your understanding, not action):
-1. Auto bootstraps → detects spec.md exists but plan.md does not → `NO_PLAN`
-2. Auto dispatches plan → plan detects existing spec.md → preserves it, produces plan.md
+1. Auto bootstraps -> detects spec.md exists but plan.md does not -> `NO_PLAN`
+2. Auto dispatches plan -> plan detects existing spec.md -> preserves it, produces plan.md
 3. Auto presents plan to user for approval (user approval gate)
-4. Implement → Review → Verify → QA → Simplify → Handoff
+4. Implement -> Review -> Verify -> QA -> Simplify -> Handoff
 
 Refactor's job ends here. Auto owns the rest including user approval.
 
@@ -332,15 +369,24 @@ Refactor's job ends here. Auto owns the rest including user approval.
 
 Use `[Refactor]` prefix:
 
+```text
+[Refactor] Task "prepare-multi-tenant-seam" created.
+[Refactor] Input type: feature-prep
+[Refactor] Tracing blocker for target feature: multi-tenant workspace support
+[Refactor] Blocker identified: tenant resolution is hardcoded inside shared DB access path
+[Refactor] Target module map drafted: request tenant context -> tenant-aware repository -> shared schema
+[Refactor] Boundary test passed for proposed modules.
+[Refactor] Contract written. Handing off to auto...
 ```
-[Refactor] Task "split-user-service" created.
-[Refactor] Input type: pain
-[Refactor] Tracing last painful change — commit abc123 "add billing webhook"
-[Refactor] Dependency chain: billing/handler.go → auth/user.go → db/models.go
-[Refactor] Co-change pattern: billing/ and auth/ change together in 80% of commits
-[Refactor] Crack identified: User model owns both auth and billing concerns
-[Refactor] Counterfactual: confirmed — with separate models, webhook would touch 2 files not 5
-[Refactor] Spec written. Handing off to auto...
+
+```text
+[Refactor] Task "rescue-dashboard-monolith" created.
+[Refactor] Input type: rescue
+[Refactor] Structural signals: Dashboard.tsx (1184 lines, UI + fetch + transforms), auth guard duplicated in 4 routes, session store mutated from 6 files
+[Refactor] Main contradiction: dashboard page owns both rendering and application orchestration
+[Refactor] Target skeleton: page -> view model hook -> service -> schema
+[Refactor] Risk tier: high (no test suite, shared mutable session state)
+[Refactor] Contract written. Handing off to auto...
 ```
 
 ## Artifacts
@@ -348,54 +394,68 @@ Use `[Refactor]` prefix:
 ```text
 .ship/tasks/<task_id>/
   plan/
-    spec.md       ← refactor writes this (diagnosis + acceptance criteria)
-    plan.md       ← auto/plan writes this (migration stories)
-  review.md       ← auto writes
-  verify.md       ← auto writes
-  qa/qa.md        ← auto writes
-  simplify.md     ← auto writes
+    spec.md       <- refactor writes this (refactor contract)
+    plan.md       <- auto/plan writes this (migration stories)
+  review.md       <- auto writes
+  verify.md       <- auto writes
+  qa/qa.md        <- auto writes
+  simplify.md     <- auto writes
 ```
+
+The contract in `spec.md` uses the unified format:
+- Goal
+- Critical Behaviors to Preserve
+- Risk Tier
+- Primary Contradiction
+- Structural Signals Found
+- Target Module Map
+- What Gets Easier After
+- Migration Constraints
+- Non-goals
 
 ## Error Handling
 
 | Condition | Action |
 |-----------|--------|
-| Input is vague, no pain | AskUserQuestion for concrete friction |
-| Directive doesn't make structural sense | Tell user, suggest alternative |
-| Cannot trace dependency chain | Narrow scope, focus on one connection |
-| No git history (new repo) | Skip pattern analysis, rely on static tracing |
-| Cannot identify structural cause | NEEDS_CONTEXT — pain may not be structural |
-| Co-change is one-off, not systemic | Tell user this may not need a refactor |
-| Multiple cracks, can't prioritize | AskUserQuestion which pain is most blocking |
+| Directive does not make structural sense | Tell the user, explain why, suggest the smallest better boundary move |
+| Feature-prep request names a feature but the feature itself is unclear | AskUserQuestion about the target feature, not about architecture |
+| Rescue scan finds many signals | Rank by future-change leverage, choose the main contradiction, note other signals in the contract |
+| No useful git history | Continue with static diagnosis only |
+| No tests or weak safety net | Raise risk tier, require characterization tests in migration constraints |
+| Problem is mainly runtime correctness / performance / flaky behavior | Report NOT_STRUCTURAL and redirect to auto/debug |
+| Structural signals are real but no concrete target skeleton emerges | NEEDS_CONTEXT |
 | Auto fails after handoff | Auto handles its own retries and escalation |
 
 ## Completion
 
 Report one of:
-- **HANDED_OFF** — diagnosis complete, spec written, auto dispatched. Auto will handle user approval and execution.
-- **NEEDS_CONTEXT** — cannot identify structural cause.
-- **NOT_STRUCTURAL** — pain exists but cause is not structural (suggest auto/debug).
+- **HANDED_OFF** - contract complete, spec written, auto dispatched. Auto will handle user approval and execution.
+- **NEEDS_CONTEXT** - cannot identify a credible structural contradiction or target skeleton.
+- **NOT_STRUCTURAL** - pain exists but the main cause is not structural (suggest auto/debug).
 
 ### Only stop for
-- Cannot identify a concrete structural crack (NEEDS_CONTEXT)
+- Cannot identify a concrete structural contradiction or target skeleton (NEEDS_CONTEXT)
 - User's pain is not structural (NOT_STRUCTURAL)
-- Directive is invalid and user declines alternative (NEEDS_CONTEXT)
+- Directive is invalid and user declines the alternative (NEEDS_CONTEXT)
 
 ### Never stop for
 - Auto failures (auto handles its own retry and escalation)
-- Imperfect git history (skip pattern analysis, use static tracing)
-- Vague input (ask user to clarify, then proceed)
+- Imperfect git history (use static analysis)
+- User inability to articulate the pain (rescue mode exists for this)
+- Missing tests (raise risk tier and constrain the migration)
+- Lack of counterfactual proof (optional confidence, not gate)
 
 <Bad>
-- Applying full diagnosis to a clear directive ("extract X into Y")
-- Skipping diagnosis for vague input ("this is messy")
-- Writing spec without reading the actual code
-- Mapping the entire codebase instead of tracing from the pain
-- Designing target structure without evidence from dependency tracing
-- Including acceptance criteria that are vague ("cleaner", "better separation")
+- Asking the user to explain the structural pain when rescue mode can read the code directly
+- Treating a feature request as the refactor itself instead of diagnosing the prerequisite boundary change
+- Writing the contract without reading the actual code
+- Ranking rescue candidates by file size alone instead of future-change leverage
+- Proposing abstract modules with no concrete file/module map
+- Letting a proposed module fail the Boundary Test
+- Writing preserved behaviors from assumptions instead of observed code paths
+- Treating git history or counterfactual validation as mandatory
+- Reporting "cleaner architecture" instead of concrete post-refactor advantages
 - Implementing, reviewing, or verifying yourself instead of handing off to auto
-- Creating a refactor/ directory instead of writing to plan/spec.md
-- Refactoring code outside the diagnosed crack's blast radius
-- Accepting the first crack you find without counterfactual validation
-- Silently overriding a user's directive when validation fails (tell them)
+- Creating a `refactor/` directory instead of writing to `plan/spec.md`
+- Expanding the refactor beyond the primary contradiction
 </Bad>
