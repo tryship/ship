@@ -1,7 +1,7 @@
 {
   "name": "ship",
   "description": "A comprehensive agent harness for end-to-end, large-scale software product development",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": {
     "name": "Ship",
     "url": "https://www.ship.tech"
