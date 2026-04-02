@@ -96,9 +96,9 @@ digraph setup {
    judgment. Deterministic checks (regex/grep) go in the pre-commit hook.
 7. Do not include style rules. The model follows project style by
    reading the code. Do not include rules the linter already enforces.
-8. Three user interactions max for harness: convention confirmation,
-   existing file replacement (only if AGENTS.md or CONVENTIONS.md exists),
-   and hook location choice.
+8. Two user interactions max for harness: convention confirmation
+   and existing file replacement (only if AGENTS.md or CONVENTIONS.md exists).
+   Hooks are automatic — hookify for deterministic, ship plugin for semantic.
 
 ---
 
@@ -392,20 +392,19 @@ understand what constraint was violated.
 
 For each finding, apply this test:
 
-1. **Can a regex/grep check catch this?** → put it in `.ship/hooks/pre-commit`
-   as a deterministic check, NOT in CONVENTIONS.md
-2. **Can the model figure this out by reading the code?** → skip it,
-   the model doesn't need a rule for this
-3. **Only AI with project context can judge this?** → this belongs in
-   CONVENTIONS.md
+1. **Can a regex/grep catch this?** → hookify rule (real-time PreToolUse
+   block) + pre-commit hook (commit-time safety net)
+2. **Can the model figure this out by reading the code?** → skip it
+3. **Only AI with project context can judge this?** → CONVENTIONS.md
 
 Examples of what goes WHERE:
 
 | Finding | Where | Why |
 |---------|-------|-----|
-| .env files must not be committed | pre-commit hook | grep can check |
-| Don't modify RLS policies | pre-commit hook | grep for ALTER POLICY in SQL |
-| Protected files list | pre-commit hook | path check |
+| .env files must not be edited | hookify rule + pre-commit | regex on file_path |
+| Don't modify RLS policies | hookify rule + pre-commit | regex on content |
+| Protected files list | hookify rule + pre-commit | regex on file_path |
+| Don't run DROP TABLE | hookify rule | regex on command |
 | Don't remove auth checks to fix errors | CONVENTIONS.md | needs semantic understanding |
 | This API has rate limit constraints | CONVENTIONS.md | model can't infer from code |
 | Legacy module X is being migrated | CONVENTIONS.md | model would build on it |
@@ -428,18 +427,21 @@ Why: <what breaks if violated>
 
 ## Phase 6: Confirm
 
-Use AskUserQuestion. Present findings separated by type. Also include
-the hook location choice to minimize user interactions.
+Use AskUserQuestion. Present findings separated by type.
+
+Hooks are handled automatically: hookify enforces deterministic rules
+in real-time, the ship plugin enforces semantic rules via Haiku,
+pre-commit hook provides commit-time safety net. No user choice needed.
 
 **Single repo:**
 ```
 I investigated your codebase and git history. Here's what I found:
 
-DETERMINISTIC CHECKS (will go in .ship/hooks/pre-commit):
-  ✓ [D1] <name> — <what it checks>
-  ✓ [D2] <name> — <what it checks>
+SAFETY RULES (real-time block via hookify + commit-time via pre-commit):
+  ✓ [D1] <name> — <what it blocks>
+  ✓ [D2] <name> — <what it blocks>
 
-SEMANTIC RULES (need AI judgment, will go in .ship/rules/CONVENTIONS.md):
+SEMANTIC RULES (AI judgment via ship plugin, checked on Write/Edit):
   ✓ [S1] <name>
         Why: <what breaks if violated>
         Evidence: <source — code file:line or git commit hash>
@@ -447,11 +449,7 @@ SEMANTIC RULES (need AI judgment, will go in .ship/rules/CONVENTIONS.md):
         Why: <what breaks if violated>
         Evidence: <source>
 
-Where should the semantic convention hook be registered?
-  H-A) Project shared (.claude/settings.json) — all team members
-  H-B) Project local (.claude/settings.local.json) — only you
-  H-C) User global (~/.claude/settings.json) — all your projects
-  H-D) Skip — don't register a hook
+All rules are enforced automatically — no configuration needed.
 
 Anything else AI should know about this project? Things that look
 safe to change but aren't, constraints not visible in the code,
@@ -577,47 +575,75 @@ Options:
 - B) Merge — add new conventions, keep existing ones
 - C) Skip — don't touch CONVENTIONS.md
 
-### Step C: Register hook
+### Step C: Generate hookify safety rules
 
-Use the hook location chosen by the user in Phase 6.
+#### Ensure hookify is installed
 
-If the user chose **Skip (H-D)**, skip this entire step — do not copy
-the script or register any hook.
-
-Otherwise, copy the convention checker script into the repo so it
-travels with the project (not tied to the plugin's install path):
-
+Check if hookify plugin is available:
 ```bash
-mkdir -p .ship/scripts
-cp "${CLAUDE_PLUGIN_ROOT}/scripts/check-conventions.sh" .ship/scripts/check-conventions.sh
+ls ~/.claude/plugins/data/*/hookify 2>/dev/null && echo "HOOKIFY_FOUND" || echo "HOOKIFY_NOT_FOUND"
 ```
 
-Read the chosen settings file (create `{}` if missing).
-Add this entry to `hooks.PreToolUse` array, preserving existing entries:
-
-```json
-{
-  "matcher": "Write|Edit",
-  "hooks": [
-    {
-      "type": "command",
-      "command": "bash .ship/scripts/check-conventions.sh",
-      "statusMessage": "Reviewing coding conventions..."
-    }
-  ]
-}
+If not found, install it:
+```bash
+claude /plugin install hookify
 ```
 
-The script (`.ship/scripts/check-conventions.sh`) is committed to the repo. It:
-1. Reads hook input JSON from stdin
-2. Checks if the file matches any scope in `.ship/rules/CONVENTIONS.md`
-3. Sends the code + conventions to `claude -p` (Haiku, print mode)
-4. Exit 0 = pass, exit 2 = violation (stderr has details)
+If install fails (e.g., no internet), warn the user but continue —
+pre-commit hook still provides commit-time safety. Hookify is the
+real-time layer, not the only layer.
 
-Using a repo-local path (`.ship/scripts/`) instead of `${CLAUDE_PLUGIN_ROOT}`
-ensures the hook works on any machine without the plugin installed.
+#### Generate rule files
 
-Skip if an identical hook entry already exists.
+For each deterministic finding from Phase 5, write a hookify rule
+file to `.claude/hookify.ship-<name>.local.md`:
+
+```markdown
+---
+name: ship-<rule-name>
+enabled: true
+event: file
+conditions:
+  - field: file_path
+    operator: regex_match
+    pattern: \.env$
+action: block
+---
+
+Do not edit .env files directly. Use .env.example for templates
+and set actual values via environment variables.
+```
+
+For bash-level rules:
+
+```markdown
+---
+name: ship-no-drop-table
+enabled: true
+event: bash
+conditions:
+  - field: command
+    operator: regex_match
+    pattern: DROP\s+TABLE
+action: block
+---
+
+DROP TABLE is blocked. Use migrations to modify database schema.
+```
+
+Hookify automatically picks up `.claude/hookify.*.local.md` files —
+no restart or registration needed. Rules take effect immediately.
+
+Also add the same checks to `.ship/hooks/pre-commit` as a commit-time
+safety net (covers manual edits outside AI tools).
+
+#### Semantic convention hook
+
+The ship plugin's hooks.json already registers a PreToolUse hook
+that runs `check-conventions.sh` on Write/Edit. This script reads
+`.ship/rules/CONVENTIONS.md` and uses Haiku for semantic checking.
+No manual registration needed — it activates automatically when
+CONVENTIONS.md exists.
 
 ### Step D: Update .gitignore
 
@@ -642,6 +668,7 @@ Do NOT gitignore `.ship/rules/`, `.ship/hooks/`, or `.ship/scripts/`.
 ```
 .claude/*
 !.claude/settings.json
+!.claude/hookify.ship-*.local.md
 ```
 
 **For existing repos:** read the current `.gitignore`, identify gaps
@@ -716,11 +743,11 @@ Harness:
   dependabot.yml   — dependency updates (if Dependabot module selected)
 .ship/
   hooks/           — pre-commit hooks (if module selected), shared via core.hooksPath
-  rules/CONVENTIONS.md — semantic enforcement rules
-  scripts/check-conventions.sh — convention checker (if hook registered)
+  rules/CONVENTIONS.md — semantic rules (AI judgment via ship plugin)
+.claude/
+  hookify.ship-*.local.md — deterministic safety rules (real-time via hookify)
 .gitignore         — comprehensive, based on detected tech stack
 AGENTS.md          — AI handbook with conventions (per sub-project in monorepos)
-.claude/settings.json — hook registration (if project shared chosen)
 ```
 
 ## Reference Files
