@@ -166,11 +166,11 @@ Generate `.ship/hooks/pre-commit` with two sections:
 The script must be executable (`chmod +x`).
 
 The script has two sections:
-1. **Safety checks** — grep/regex from Phase 5 deterministic findings
-   (secrets, protected files, forbidden patterns)
-2. **Lint + format** — run the project's detected linter/formatter
+1. **Lint + format** — run the project's detected linter/formatter
    on staged files. Use `lint-staged` if configured. Only add wiring,
    not new tools (unless Install Tools was also selected).
+2. **Safety checks** — grep/regex from Phase 5 deterministic findings
+   (secrets, protected files, forbidden patterns).
 
 If the project already uses `.husky/` or `.pre-commit-config.yaml`,
 migrate to `.ship/hooks/`: port the existing hook commands into the
