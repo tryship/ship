@@ -7,9 +7,9 @@ when setup detects that harness files already exist (Phase 3.5).
 
 Read each file that exists:
 - `AGENTS.md`
+- `CLAUDE.md`
 - `.ship/rules/CONVENTIONS.md`
 - `DEVELOPMENT.md`
-- `README.md`
 
 ## Step 2: Extract and verify claims
 

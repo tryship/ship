@@ -147,29 +147,29 @@ also selected.
 
 ### Pre-commit hook configuration
 
-Generate hook scripts in `.ship/hooks/` and set `core.hooksPath` so
-hooks work across all worktrees and branches without per-worktree setup.
+Three cases based on what Phase 1 Step D detected:
 
-If `core.hooksPath` is already set to a path other than `.ship/hooks/`,
-ask the user before overwriting it.
+**Case 1: Working pre-commit system exists** (`.pre-commit-config.yaml`
+with `pre-commit install` done, `.husky/` with hooks, or `core.hooksPath`
+already set and working) → **do not migrate**. Respect the existing
+system. Skip this module.
 
-```bash
-mkdir -p .ship/hooks
-git config core.hooksPath .ship/hooks
-```
+**Case 2: Config exists but hook runner not wired** (e.g., `lint-staged`
+in package.json but no husky, or `.pre-commit-config.yaml` exists but
+`pre-commit install` was never run) → **wire it up**. Install the
+missing hook runner:
+- `lint-staged` without husky → run `npx husky init` or set
+  `core.hooksPath` to `.ship/hooks/` with a script that calls
+  `npx lint-staged`
+- `.pre-commit-config.yaml` without install → run `pre-commit install`
 
-Generate `.ship/hooks/pre-commit` to run lint + format on staged files.
-Use `lint-staged` if configured, otherwise call the detected tools
-directly. Only add wiring, not new tools (unless Install Tools was
-also selected). The script must be executable (`chmod +x`).
+**Case 3: Nothing exists** → generate `.ship/hooks/pre-commit` to run
+lint + format on staged files. Set `core.hooksPath .ship/hooks`.
+Use the project's detected linter/formatter. The script must be
+executable (`chmod +x`).
 
 Deterministic safety checks (secrets, protected files, forbidden
 patterns) are handled by hookify rules in Phase 7 Step C, not here.
-
-If the project already uses `.husky/` or `.pre-commit-config.yaml`,
-migrate to `.ship/hooks/`: port the existing hook commands into the
-generated script, then remove the legacy config. Ask the user before
-removing legacy files.
 
 After each module, commit atomically:
 ```
@@ -182,7 +182,7 @@ git commit -m "<conventional commit message>"
 ## Phase 3.5: Harness Audit (only if harness already exists)
 
 Before generating anything, check if the project already has harness
-files (AGENTS.md, `.ship/rules/CONVENTIONS.md`, DEVELOPMENT.md, README.md).
+files (AGENTS.md, CLAUDE.md, `.ship/rules/CONVENTIONS.md`, DEVELOPMENT.md).
 
 If no harness files exist → skip to Phase 4 (full init).
 
