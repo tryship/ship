@@ -286,59 +286,12 @@ git commit -m "<conventional commit message>"
 ## Phase 3.5: Harness Audit (only if harness already exists)
 
 Before generating anything, check if the project already has harness
-files. If it does, audit them for freshness before deciding what to do.
-
-### Step A: Detect existing harness
-
-```bash
-[ -f AGENTS.md ] && echo "AGENTS.md: exists" || echo "AGENTS.md: missing"
-[ -f .ship/rules/CONVENTIONS.md ] && echo "CONVENTIONS.md: exists" || echo "CONVENTIONS.md: missing"
-[ -f DEVELOPMENT.md ] && echo "DEVELOPMENT.md: exists" || echo "DEVELOPMENT.md: missing"
-[ -f README.md ] && echo "README.md: exists" || echo "README.md: missing"
-```
+files (AGENTS.md, `.ship/rules/CONVENTIONS.md`, DEVELOPMENT.md, README.md).
 
 If no harness files exist → skip to Phase 4 (full init).
 
-### Step B: Audit existing harness
-
-For each harness file that exists, verify its claims against the code:
-
-1. **Extract claims** — file paths, module names, commands, directory
-   structure, tool references mentioned in the doc
-2. **Verify each claim:**
-   - Referenced file paths → do they still exist? (`ls` / `stat`)
-   - Commands (e.g., `pnpm test`, `cargo build`) → do they match
-     package.json scripts / Makefile / etc.?
-   - Architecture descriptions (e.g., "src/services/ handles business
-     logic") → does the directory still exist? Does the description
-     match what's actually in there?
-   - Tool references → are those tools still in the project's deps?
-3. **Classify findings:**
-   - `stale`: referenced path/command/tool no longer exists
-   - `contradicted`: code does something different from what docs say
-   - `accurate`: claim still holds
-
-### Step C: Present audit results
-
-Use AskUserQuestion:
-
-```
-Your project already has harness files. I audited them against
-the current code:
-
-AGENTS.md: <N> claims checked
-  ✗ [stale] References src/renderer/ — directory moved to src/contexts/workspace/
-  ✗ [stale] Says "run pnpm lint" — actual command is "pnpm lint:fix"
-  ✓ [accurate] Architecture description of Main/Preload/Renderer boundaries
-  ...
-
-CONVENTIONS.md: <N> rules checked
-  ✗ [stale] Rule scoped to src/payments/v1/ — directory deleted
-  ✓ [accurate] Auth flow constraint still holds
-  ...
-
-<M> stale claims found, <K> still accurate.
-```
+If harness files exist → audit them for freshness using
+`references/harness-audit.md`, then present results to the user:
 
 Options:
 - A) Fix stale claims and keep accurate ones (recommended)
@@ -778,6 +731,7 @@ AGENTS.md          — AI handbook with conventions (per sub-project in monorepo
 - `references/ci.md` — GitHub Actions CI/CD generation
 - `references/review.md` — AI code review workflow setup
 - `references/runtime-install-guide.md` — platform-specific runtime installation
+- `references/harness-audit.md` — harness freshness audit (Phase 3.5)
 
 ## What This Skill Does NOT Do
 
