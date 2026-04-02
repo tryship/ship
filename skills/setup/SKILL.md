@@ -92,10 +92,10 @@ digraph setup {
 3. Execute ONLY the modules the user selected.
 4. Respect existing config. Show diff and ask before replacing.
 5. Read the code before writing any convention rules.
-6. Every observed convention must have file:line evidence from 3+ files.
-   User-defined rules (added by the user without code evidence) are allowed
-   but must be clearly labeled as `Source: user-defined` in CONVENTIONS.md.
-7. Skip conventions already enforced by the project's linter/formatter.
+6. CONVENTIONS.md is for semantic rules only — things that require AI
+   judgment. Deterministic checks (regex/grep) go in the pre-commit hook.
+7. Do not include style rules. The model follows project style by
+   reading the code. Do not include rules the linter already enforces.
 8. Three user interactions max for harness: convention confirmation,
    existing file replacement (only if AGENTS.md or CONVENTIONS.md exists),
    and hook location choice.
@@ -211,22 +211,52 @@ mkdir -p .ship/hooks
 git config core.hooksPath .ship/hooks
 ```
 
-Generate `.ship/hooks/pre-commit` with lint + format commands for
-each detected language. The script must be executable (`chmod +x`).
+Generate `.ship/hooks/pre-commit` with two sections:
+
+1. **Deterministic safety checks** — grep/regex rules from Phase 5
+   (type: deterministic). These catch things mechanically.
+2. **Lint + format** — run the project's linter/formatter on staged files.
+
+The script must be executable (`chmod +x`).
+
+#### Section 1: Safety checks
+
+Generate checks from Phase 5 deterministic findings. Common examples:
+
+```bash
+#!/usr/bin/env bash
+set -e
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+
+# Block secrets and sensitive files
+if echo "$STAGED" | grep -qE '\.env$|\.env\.local$|credentials\.json$|\.pem$'; then
+  echo "ERROR: Sensitive file staged. Remove it from the commit." >&2
+  exit 1
+fi
+
+# Check for hardcoded secrets in staged content
+if git diff --cached -U0 | grep -qiE '(password|secret|api_key)\s*=\s*["\x27][^"\x27]+["\x27]'; then
+  echo "WARNING: Possible hardcoded secret detected. Review before committing." >&2
+  exit 1
+fi
+```
+
+Add project-specific deterministic checks based on Phase 5 findings
+(e.g., protected file paths, forbidden SQL patterns, etc.).
+
+#### Section 2: Lint + format
 
 Use the linter/formatter the project already has configured. The
 examples below are defaults when no existing tool is detected:
 
 **JS/TS** (example — use the project's actual linter/formatter):
 ```bash
-#!/usr/bin/env bash
-# Run lint-staged if available, otherwise run linter + formatter directly
 if command -v npx &>/dev/null && grep -q '"lint-staged"' package.json 2>/dev/null; then
   npx lint-staged
 else
-  npx oxlint --fix $(git diff --cached --name-only --diff-filter=ACM -- '*.ts' '*.tsx' '*.js' '*.jsx')
-  npx prettier --write $(git diff --cached --name-only --diff-filter=ACM -- '*.ts' '*.tsx' '*.js' '*.jsx' '*.json' '*.md' '*.yml')
-  git add $(git diff --cached --name-only --diff-filter=ACM)
+  npx oxlint --fix $(echo "$STAGED" | grep -E '\.(ts|tsx|js|jsx)$')
+  npx prettier --write $(echo "$STAGED" | grep -E '\.(ts|tsx|js|jsx|json|md|yml)$')
+  git add $(echo "$STAGED" | grep -E '\.(ts|tsx|js|jsx|json|md|yml)$')
 fi
 ```
 
@@ -235,7 +265,7 @@ fi
 **Rust** (example): `cargo clippy --fix` + `cargo fmt` on staged `.rs` files
 **Shell** (example): `shellcheck` on staged `.sh` files (if shellcheck is available)
 
-Only add pre-commit wiring, not new tools (unless Install Tools
+Only add lint/format wiring, not new tools (unless Install Tools
 module was also selected).
 
 If the project already uses `.husky/` or `.pre-commit-config.yaml`,
@@ -289,97 +319,123 @@ git log --since="30 days ago" --name-only --pretty=format: | \
 
 ## Phase 5: Investigate
 
-Trace from entry points 2-3 levels deep. Find conventions that
-linters can't cover.
+Find rules that **only AI can judge** — things where violating them
+causes bugs, security issues, or architectural breakage, but a regex
+or linter cannot detect the violation.
+
+Do NOT look for code style patterns (naming, formatting, import order).
+The model already understands those from reading the code. Instead, look
+for **constraints that the model would violate because it lacks context**.
 
 **Monorepo:** investigate each active sub-project independently.
-Each sub-project may have different conventions.
 
-**No entry point / non-application repos:** investigate the most
-active files by modification frequency. Look for patterns in file
-organization, naming, script structure, documentation format, etc.
+### Method A: Code investigation
 
-### Method
+Trace from entry points (or most-active files) 2-3 levels deep.
+Look for:
 
-Start at the entry point (or most-active files). Follow calls inward
-2-3 levels. Record any pattern repeated across 3+ files.
+- **Hidden contracts** — functions that look simple but have
+  preconditions, side effects, or ordering requirements not obvious
+  from the signature
+- **Architectural boundaries** — layers or modules that must not
+  be bypassed, but the code doesn't enforce it (no linter rule)
+- **Security-sensitive paths** — auth flows, permission checks,
+  data sanitization where removing or simplifying would cause a
+  vulnerability
+- **Domain-specific traps** — business logic that looks like it
+  could be simplified but cannot (e.g., price in cents not dollars,
+  timezone handling, regulatory constraints)
 
-Read each file fully. Stop when you stop finding new patterns.
+### Method B: Git history investigation
 
-**Fallback prompts** (use only if fewer than 2 patterns found after
-tracing 2-3 levels):
-- Error handling, validation, module boundaries, naming
-- Logging, API contracts, data access, security
+Scan git history for evidence of past mistakes:
+
+```bash
+# Find reverted commits (things that were tried and failed)
+git log --oneline --grep="revert" --since="6 months ago" | head -10
+
+# Find bug fix commits (what went wrong before)
+git log --oneline --grep="fix" --grep="bug" --all-match --since="6 months ago" | head -10
+
+# Find files with the most bug fixes (error-prone areas)
+git log --oneline --grep="fix" --since="6 months ago" --name-only --pretty=format: | \
+  grep -v '^$' | sort | uniq -c | sort -rn | head -10
+```
+
+For interesting reverts or bug fixes, read the commit diff to
+understand what constraint was violated.
 
 ### Filter
 
-For each pattern: could the project's existing linter enforce this?
-- Yes → skip silently. Don't include in findings or output.
-- No → this is a harness convention
+For each finding, apply this test:
+
+1. **Can a regex/grep check catch this?** → put it in `.ship/hooks/pre-commit`
+   as a deterministic check, NOT in CONVENTIONS.md
+2. **Can the model figure this out by reading the code?** → skip it,
+   the model doesn't need a rule for this
+3. **Only AI with project context can judge this?** → this belongs in
+   CONVENTIONS.md
+
+Examples of what goes WHERE:
+
+| Finding | Where | Why |
+|---------|-------|-----|
+| .env files must not be committed | pre-commit hook | grep can check |
+| Don't modify RLS policies | pre-commit hook | grep for ALTER POLICY in SQL |
+| Protected files list | pre-commit hook | path check |
+| Don't remove auth checks to fix errors | CONVENTIONS.md | needs semantic understanding |
+| This API has rate limit constraints | CONVENTIONS.md | model can't infer from code |
+| Legacy module X is being migrated | CONVENTIONS.md | model would build on it |
+| Price stored in cents not dollars | CONVENTIONS.md | model might "fix" it |
 
 ### Record
 
 ```
 Sub-project: <path or "root"> (monorepo only)
-Convention: <name>
-Evidence: <file1:line>, <file2:line>, <file3:line>
-Consistency: <N files follow / M files checked>
+Type: semantic | deterministic
+Rule: <name>
+Source: <code | git-history | user>
+Evidence: <file1:line>, <file2:line>, <file3:line> (if from code)
+          <commit-hash: summary> (if from git history)
 Description: <one sentence>
+Why: <what breaks if violated>
 ```
 
 ---
 
 ## Phase 6: Confirm
 
-Use AskUserQuestion. Also include the hook location choice to
-minimize user interactions.
+Use AskUserQuestion. Present findings separated by type. Also include
+the hook location choice to minimize user interactions.
 
 **Single repo:**
 ```
-I read your codebase and found these conventions that linters can't cover:
+I investigated your codebase and git history. Here's what I found:
 
-  ✓ [1] <name>
-        Evidence: <file1:line>, <file2:line>, <file3:line> (<N/M files>)
+DETERMINISTIC CHECKS (will go in .ship/hooks/pre-commit):
+  ✓ [D1] <name> — <what it checks>
+  ✓ [D2] <name> — <what it checks>
 
-  ✓ [2] <name>
-        Evidence: <file1:line>, <file2:line>, <file3:line> (<N/M files>)
+SEMANTIC RULES (need AI judgment, will go in .ship/rules/CONVENTIONS.md):
+  ✓ [S1] <name>
+        Why: <what breaks if violated>
+        Evidence: <source — code file:line or git commit hash>
+  ✓ [S2] <name>
+        Why: <what breaks if violated>
+        Evidence: <source>
 
-Where should the convention enforcement hook be registered?
+Where should the semantic convention hook be registered?
   H-A) Project shared (.claude/settings.json) — all team members
   H-B) Project local (.claude/settings.local.json) — only you
   H-C) User global (~/.claude/settings.json) — all your projects
   H-D) Skip — don't register a hook
 
-Anything else AI should know about this project? (conventions,
-gotchas, boundaries, or context not visible in the code)
+Anything else AI should know about this project? Things that look
+safe to change but aren't, constraints not visible in the code,
+ongoing migrations, domain-specific traps?
 ```
 
-**Monorepo:**
-```
-I detected a monorepo and investigated active sub-projects:
-
-  [go-services/] (N commits in 30 days)
-    ✓ [1] <name>
-          Evidence: <file1:line>, <file2:line>, <file3:line> (<N/M files>)
-    ✓ [2] <name>
-          Evidence: ...
-
-  [frontend/] (N commits in 30 days)
-    ✓ [3] <name>
-          Evidence: ...
-
-  Not investigated (inactive):
-    - app/ (0 commits)
-    - shipcli-ts/ (0 commits)
-
-Where should the convention enforcement hook be registered?
-  H-A) Project shared (.claude/settings.json) — all team members
-  H-B) Project local (.claude/settings.local.json) — only you
-  H-C) User global (~/.claude/settings.json) — all your projects
-  H-D) Skip — don't register a hook
-
-Anything else AI should know? Want me to investigate any inactive sub-project?
-```
+**Monorepo:** same format, grouped by sub-project.
 
 Options:
 - A) Generate as shown
@@ -438,39 +494,54 @@ AskUserQuestion if possible).
 
 ### Step B: Generate CONVENTIONS.md
 
-Write to `.ship/rules/CONVENTIONS.md`. Only conventions that
-linters can't cover (the ones confirmed in Phase 6).
+Write to `.ship/rules/CONVENTIONS.md`. This file contains ONLY rules
+that require AI semantic judgment. Deterministic checks go in the
+pre-commit hook, NOT here.
 
-Format per observed convention:
+**Test before including:** "Could a regex or grep catch this violation?"
+If yes, it belongs in the pre-commit hook. CONVENTIONS.md is for things
+like "don't remove auth logic to fix a bug" — where understanding
+intent is required.
+
+Format:
 
 ```markdown
-## <Convention name>
-Source: observed
+## <Rule name>
 Scope: <glob pattern>
-Description: <one sentence>
-Correct (from <file:line>):
-\`\`\`
-<actual code from the codebase>
-\`\`\`
-Incorrect:
-\`\`\`
-<constructed counter-example showing what NOT to do>
-\`\`\`
-Rationale: <one sentence>
+Constraint: <what must not happen>
+Why: <what breaks — bug, security issue, data loss, etc.>
+Source: <observed from code | git-history commit:hash | user-defined>
 ```
 
-Format per user-defined rule (no code evidence):
+Examples of good CONVENTIONS.md rules:
 
 ```markdown
-## <Convention name>
+## Do not simplify auth flows to fix errors
+Scope: src/auth/**
+Constraint: Never remove or bypass authentication/authorization checks
+  to resolve runtime errors. Fix the root cause instead.
+Why: Removing auth checks creates security vulnerabilities. AI agents
+  are known to delete validation logic to make errors go away.
+Source: observed from code
+
+## Price is stored in cents
+Scope: src/billing/**
+Constraint: All monetary values are integers representing cents, not
+  floating-point dollars. Do not "fix" this to use decimals.
+Why: Floating-point arithmetic causes rounding errors in financial
+  calculations. This is an intentional design choice.
 Source: user-defined
-Scope: <glob pattern>
-Description: <one sentence>
-Rationale: <one sentence>
+
+## Legacy payments module is being migrated
+Scope: src/payments/v1/**
+Constraint: Do not add new features or dependencies to v1 payments.
+  All new payment logic goes in src/payments/v2/.
+Why: v1 is scheduled for removal. New dependencies delay the migration.
+Source: git-history commit:abc123
 ```
 
-- Observed conventions: correct examples must come from the codebase
-- User-defined rules: no code examples required
+Do NOT include style rules (naming, formatting, import order). The
+model already follows project style by reading the code.
 
 **If `.ship/rules/CONVENTIONS.md` already exists**, use AskUserQuestion:
 
@@ -652,8 +723,8 @@ AGENTS.md          — AI handbook with conventions (per sub-project in monorepo
 - Writing rules without reading the code first
 - Generating rules from templates or presets
 - Reading every file in the project
-- Including an observed convention from fewer than 3 files
-- Generating an observed convention without file:line evidence
+- Putting style rules (naming, formatting) in CONVENTIONS.md
+- Putting deterministic checks (grep-able) in CONVENTIONS.md instead of pre-commit hook
 - Including a pattern the linter already enforces
 - Running Dependabot generation inside the CI/CD module
 - Overwriting existing core.hooksPath without asking
