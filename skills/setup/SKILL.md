@@ -17,6 +17,7 @@ allowed-tools:
   - Grep
   - Glob
   - AskUserQuestion
+  - Skill
 ---
 
 # Ship: Setup
@@ -41,7 +42,7 @@ If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 4. Respect existing config. Show diff and ask before replacing.
 5. Read the code before writing any convention rules.
 6. CONVENTIONS.md is for semantic rules only — things that require AI
-   judgment. Deterministic checks (regex/grep) go in the pre-commit hook.
+   judgment. Deterministic checks (regex/grep) go in hookify rules.
 7. Do not include style rules. The model follows project style by
    reading the code. Do not include rules the linter already enforces.
 8. Two user interactions max for harness: convention confirmation
@@ -163,7 +164,7 @@ directly. Only add wiring, not new tools (unless Install Tools was
 also selected). The script must be executable (`chmod +x`).
 
 Deterministic safety checks (secrets, protected files, forbidden
-patterns) are handled by hookify rules in Phase 7C, not here.
+patterns) are handled by hookify rules in Phase 7 Step C, not here.
 
 If the project already uses `.husky/` or `.pre-commit-config.yaml`,
 migrate to `.ship/hooks/`: port the existing hook commands into the
@@ -345,11 +346,11 @@ AskUserQuestion if possible).
 ### Step B: Generate CONVENTIONS.md
 
 Write to `.ship/rules/CONVENTIONS.md`. This file contains ONLY rules
-that require AI semantic judgment. Deterministic checks go in the
-pre-commit hook, NOT here.
+that require AI semantic judgment. Deterministic checks go in hookify
+rules (Step C), NOT here.
 
 **Test before including:** "Could a regex or grep catch this violation?"
-If yes, it belongs in the pre-commit hook. CONVENTIONS.md is for things
+If yes, it belongs in a hookify rule. CONVENTIONS.md is for things
 like "don't remove auth logic to fix a bug" — where understanding
 intent is required.
 
@@ -493,7 +494,7 @@ Harness:
 
 <Bad>
 - Putting style rules in CONVENTIONS.md
-- Putting grep-able checks in CONVENTIONS.md instead of hookify/pre-commit
+- Putting grep-able checks in CONVENTIONS.md instead of hookify rules
 - Generating rules from templates without reading code
 - Running Dependabot inside CI/CD module
 - Overwriting existing core.hooksPath without asking
