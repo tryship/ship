@@ -1,36 +1,6 @@
 {
-  "description": "Ship plugin hooks — workflow quality gates and harness enforcement",
+  "description": "Ship plugin hooks — workflow quality gates",
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Write|Edit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-safety.sh",
-            "timeout": 10,
-            "statusMessage": "Checking safety rules..."
-          },
-          {
-            "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-conventions.sh",
-            "timeout": 30,
-            "statusMessage": "Checking coding conventions..."
-          }
-        ]
-      },
-      {
-        "matcher": "Bash",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-safety.sh",
-            "timeout": 10,
-            "statusMessage": "Checking safety rules..."
-          }
-        ]
-      }
-    ],
     "Stop": [
       {
         "hooks": [
