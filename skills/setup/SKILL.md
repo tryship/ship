@@ -287,15 +287,11 @@ understand what constraint was violated.
 
 For each finding, apply this test:
 
-1. **Can a regex/grep catch this?** → hookify rule (real-time PreToolUse
-   block) + pre-commit hook (commit-time safety net)
-2. **Can the model figure this out by reading the code?** → skip it
-3. **Only AI with project context can judge this?** → CONVENTIONS.md
-
-Examples of what goes WHERE:
-
-Deterministic examples: protect .env files, block DROP TABLE, protected file paths.
-Semantic examples: don't remove auth to fix errors, price in cents not dollars, legacy module migration.
+1. **Can a regex/grep catch this?** → record as `type: deterministic`.
+   These become hookify rules in Step 7C.
+2. **Can the model figure this out by reading the code?** → skip it.
+3. **Only AI with project context can judge this?** → record as
+   `type: semantic`. These go in CONVENTIONS.md in Step 7B.
 
 ---
 
