@@ -1,134 +1,99 @@
-# QA Report Template
+# Report Template
 
-## Machine-readable header (first content line)
+Shared report structure for all testing references (browser, API, CLI).
+Each reference writes its report to `<qa_dir>/` using this template
+with type-specific metadata fields.
 
-```
-<!-- QA_RESULT: <PASS|FAIL|SKIP> <functional>/10 MUSTS:<p>/<t> SHOULDS:<p>/<t> CRITERIA:<total> HEALTH:<health>/10 EXPLORATORY:<count> -->
-```
+## Report structure
 
-Examples:
-- `<!-- QA_RESULT: PASS 9/10 MUSTS:4/4 SHOULDS:2/3 CRITERIA:7 HEALTH:10/10 EXPLORATORY:1 -->`
-- `<!-- QA_RESULT: FAIL 3/10 MUSTS:1/4 SHOULDS:2/3 CRITERIA:7 HEALTH:7/10 EXPLORATORY:3 -->`
-- `<!-- QA_RESULT: SKIP 0/10 MUSTS:0/0 SHOULDS:0/0 CRITERIA:0 HEALTH:0/10 EXPLORATORY:0 -->`
-
-## Full template
-
-````markdown
-# QA Evaluation Report
-
-<!-- QA_RESULT: <verdict> <functional>/10 MUSTS:<p>/<t> SHOULDS:<p>/<t> CRITERIA:<total> HEALTH:<health>/10 EXPLORATORY:<count> -->
-
-## Metadata
+```markdown
+# {Type} Exploratory Report
 
 | Field | Value |
 |-------|-------|
-| Date | <YYYY-MM-DD HH:MM UTC> |
-| HEAD | <short sha> |
-| Spec | <relative path to spec.md> |
-| App type | <web app / API / CLI / library> |
-| Browser | <Chrome MCP / Computer Use / none> |
-| Duration | <seconds>s |
-
-## Rubric
-
-Full rubric: [rubric.md](rubric.md)
-
-## Functional Results
-
-| # | Criterion | Type | Verdict | Evidence | Link |
-|---|-----------|------|---------|----------|------|
-| 1 | <name> | MUST | PASS/FAIL | L1/L2 | [detail](#criterion-1) |
-| 2 | <name> | SHOULD | PASS/FAIL/SKIP | L1/L2 | [detail](#criterion-2) |
-
-### Criterion 1: <name>
-
-- **Type:** MUST
-- **Verdict:** PASS / FAIL
-- **Evidence level:** L1 / L2
-- **Test method:** <what was done>
-
-**Evidence:**
-<screenshot path, curl output, console log>
-
-**Rationale:**
-<why this verdict>
-
----
-
-<!-- Repeat for each criterion -->
-
-## Exploratory Findings
-
-| # | Finding | Severity | Page/Endpoint |
-|---|---------|----------|---------------|
-| 1 | <description> | critical/high/medium/low | <where> |
-
-### Finding 1: <description>
-
-- **Severity:** <level>
-- **Steps to reproduce:** <1-2-3>
-- **Evidence:** <screenshot or response>
-
----
-
-## Health Report
-
-| Check | Result | Threshold |
-|-------|--------|-----------|
-| Console errors | <N> | 0 |
-| HTTP 500s | <N> | 0 |
-| Page load time | <X>s | <5s |
-| Broken assets | <N> | 0 |
-| A11y warnings | <N> | report only |
-
-Health score: <health>/10
-
-<!-- ===== FAIL verdict ===== -->
-
-## Principal Failure
-
-**<criterion name>** (MUST) — <one-sentence summary>
-
-- Expected: <from rubric>
-- Observed: <from evidence>
-- Root cause: <analysis>
-- **Fix guidance:** <file, function, direction>
-
-### Secondary Failures
-
-- **<name>** (<type>) — <summary>. Likely caused by principal failure: yes/no.
-
-### Suggestions
-
-1. **[Principal]** <actionable fix for main failure>
-2. **[Secondary]** <fix for next failure>
-3. **[Exploratory]** <fix for notable exploratory finding>
-
-<!-- ===== PASS verdict ===== -->
+| **Date** | {YYYY-MM-DD HH:MM UTC} |
+{type-specific metadata fields — see below}
 
 ## Summary
 
-All MUST criteria passed. <functional>/10 functional, <health>/10 health.
+| Severity | Count |
+|----------|-------|
+| Critical | 0 |
+| High | 0 |
+| Medium | 0 |
+| Low | 0 |
+| **Total** | **0** |
 
-### SHOULD Warnings
-- **<name>** — <what was not fully satisfied>
+## Issues
 
-### Notable Exploratory Findings
-- <any findings worth awareness>
-````
+### ISSUE-001: {Short title}
 
-## Verdict rules
+| Field | Value |
+|-------|-------|
+| **Severity** | critical / high / medium / low |
+| **Category** | {from the reference's category list} |
+{type-specific issue fields — see below}
 
-1. Any MUST FAIL → overall **FAIL**
-2. Any MUST with only L2 evidence → overall **FAIL**
-3. All MUST PASS + functional >= 7 → overall **PASS**
-4. All MUST PASS + health < 5 → **PASS_WITH_CONCERNS**
-5. All MUST PASS + critical exploratory finding → **PASS_WITH_CONCERNS**
-6. No criteria evaluated → overall **SKIP**
+**Expected**
 
-## Important
+{What should happen}
 
-- Do NOT retry failed criteria. Record and move on.
-- FAIL feedback must lead with principal failure, not a laundry list.
-- Include only first 500 chars of response bodies in evidence.
-- Every MUST criterion requires L1 evidence when browser is available.
+**Observed**
+
+{What actually happened}
+
+**Evidence**
+
+{Screenshots, videos, curl output, command output — linked by relative path}
+
+---
+```
+
+## Type-specific fields
+
+### Browser (`browser-report.md`)
+
+Metadata:
+- **App URL** | {URL}
+- **Session** | {SESSION_NAME}
+- **Scope** | {what was explored}
+
+Issue fields:
+- **URL** | {page URL where issue was found}
+- **Repro Video** | {path to video, or N/A for static issues}
+
+Evidence format: numbered repro steps with screenshot at each step,
+repro video for interactive issues.
+
+### API (`api-report.md`)
+
+Metadata:
+- **Base URL** | http://localhost:{PORT}
+- **Scope** | {endpoints tested}
+
+Issue fields:
+- **Endpoint** | {METHOD /path}
+- **Evidence** | [api-{test-name}.txt](api-{test-name}.txt)
+
+Evidence format: full curl request/response captured with `curl -sv`.
+
+### CLI (`cli-report.md`)
+
+Metadata:
+- **CLI** | {command name and version}
+- **Scope** | {commands/subcommands tested}
+
+Issue fields:
+- **Command** | {full command that triggers the issue}
+- **Evidence** | [cli-{test-name}.txt](cli-{test-name}.txt)
+- **Exit code** | {actual} (expected: {expected})
+
+Evidence format: stdout + stderr + exit code captured to file.
+
+## Rules
+
+- Increment issue counter: ISSUE-001, ISSUE-002, ...
+- Append each issue immediately as found — do not batch
+- Update summary severity counts after all issues are documented
+- Every `### ISSUE-` block must be reflected in the summary totals
+- Link evidence files by relative path

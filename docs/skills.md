@@ -253,50 +253,41 @@ The most important word is "independent." The QA evaluator is contractually forb
 
 ### Evidence hierarchy
 
-Not all evidence is equal:
+Every verdict must be backed by direct evidence — screenshots, curl responses, command output. "Should work based on code" is not evidence. HTTP 200 alone is not proof — inspect the response body.
 
-- **L1 — Direct observation.** You saw it yourself. Screenshot, curl response body, console log. This is the only acceptable evidence for MUST criteria.
-- **L2 — Indirect signal.** HTTP 200, "tests passed." Acceptable for SHOULD criteria only.
-- **L3 — Assumption.** "Should work based on the code." Automatic FAIL.
+### How it works
 
-HTTP 200 is not proof. The QA evaluator must inspect the response body, check the DOM, verify the actual behavior — not just confirm the server didn't crash.
+QA reads the spec and the git diff, then matches testing to what changed:
 
-### Three layers
+- **Frontend changes** → browser testing (via agent-browser)
+- **API changes** → endpoint testing (via curl)
+- **CLI changes** → terminal testing
 
-1. **Functional verification** — test every acceptance criterion from the spec against the running app
-2. **Exploratory testing** — go beyond the spec. Edge cases, error paths, unexpected inputs. Findings here don't affect the verdict but are reported.
-3. **Health check** — console errors, HTTP 500s, page load time, broken assets
+Most projects have a frontend. When you test through the browser, you implicitly test the API, auth, database, and most of the stack.
 
 ### Example
 
 ```
 You:   /ship:qa
 
-Claude: [QA] Starting application... server ready on :3000
-        [QA] Building rubric from spec: 3 MUST, 1 SHOULD criteria
+Claude: [QA] Reading spec and diff...
+        [QA] Diff touches: src/api/rate-limit.ts, src/components/UploadForm.tsx
+        [QA] Starting application... server ready on :3000
 
-        [QA] Functional Verification:
-        MUST-1: 429 after 100 uploads/hour — PASS
-                Evidence (L1): curl response, status=429, body={"error":"rate limited"}
-        MUST-2: Retry-After header present — PASS
-                Evidence (L1): Retry-After: 3600
-        MUST-3: Non-upload endpoints unaffected — PASS
-                Evidence (L1): GET /api/status returns 200 during rate limit
-        SHOULD-1: Existing rate limiter tests pass — PASS
-                Evidence (L2): npm test exit code 0, 47/47 passing
+        [QA] Testing spec criteria:
+        Rate limit at 100 uploads/hour — PASS
+          curl: POST /api/upload x101, 101st returns 429 {"error":"rate limited"}
+        Retry-After header present — PASS
+          curl: Retry-After: 3600 in 429 response
+        Non-upload endpoints unaffected — PASS
+          curl: GET /api/status returns 200 during rate limit
 
-        [QA] Exploratory Testing:
-        - Tested concurrent uploads from same user: rate limit triggers correctly
-        - Tested unauthenticated requests: returns 401 before rate limit check (good)
-        - Edge: exactly 100th request returns 200, 101st returns 429 ✓
+        [QA] Beyond spec:
+        - Concurrent uploads from same user: rate limit triggers correctly
+        - Unauthenticated requests: returns 401 before rate limit check
+        - Edge: 100th request returns 200, 101st returns 429
 
-        [QA] Health Check:
-        Console errors: 0
-        HTTP 500s: 0
-        Load time: 340ms (p95)
-
-        Verdict: PASS (score: 97/100)
-        Report written to .ship/tasks/rate-limit-upload/qa/qa.md
+        Verdict: PASS — all spec criteria met, no issues found
 ```
 
 ---

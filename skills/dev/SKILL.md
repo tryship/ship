@@ -196,6 +196,7 @@ CODE_CONDUCT, TEST_CMD) before dispatch.
 mcp__codex__codex({
   prompt: <filled implementer prompt>,
   approval-policy: "never",
+  sandbox: "danger-full-access",
   cwd: <repo root>
 })
 ```
@@ -294,6 +295,7 @@ After all stories pass, dispatch Codex MCP to run the full test suite:
 mcp__codex__codex({
   prompt: "Run the full test suite: <TEST_CMD>. Report PASS or FAIL with output.",
   approval-policy: "never",
+  sandbox: "danger-full-access",
   cwd: <repo root>
 })
 ```

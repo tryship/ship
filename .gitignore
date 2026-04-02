@@ -4,3 +4,12 @@ test-repo/
 benchmark/
 TODO.md
 .claude/*.local.md
+.claude/skills/
+.agents/
+.pi/
+skills-lock.json
+skills/agent-browser
+skills/dogfood
+skills/electron
+skills/slack
+skills/vercel-sandbox

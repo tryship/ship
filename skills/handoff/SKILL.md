@@ -238,7 +238,7 @@ Check required artifacts exist and are non-empty:
 - `plan/spec.md`, `plan/plan.md` — if task dir has `plan/` (skip for standalone)
 - `review.md` — if task dir has it (skip for standalone)
 - `verify.md`
-- `qa/qa.md` — only if code files changed
+- `qa/` — QA reports (browser-report.md, api-report.md, cli-report.md) — only if code files changed
 - `simplify.md` — only if code files changed
 
 If any required artifact missing → go back to the phase that owns it, or escalate.
@@ -269,7 +269,7 @@ Build proof bundle from these sources:
 | lint | `proof/current/lint.txt` | First line: `HEAD_SHA=<sha>` |
 | coverage | `proof/current/coverage.txt` | First line: `HEAD_SHA=<sha>` |
 | verify | `verify.md` | First line: `<!-- VERIFY_RESULT: PASS\|FAIL -->` |
-| qa | `qa/qa.md` | First line: `<!-- QA_RESULT: ... -->` |
+| qa | `qa/` | QA reports exist (browser-report.md, api-report.md, or cli-report.md) |
 
 PR body template:
 ```markdown

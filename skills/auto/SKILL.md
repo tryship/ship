@@ -175,7 +175,7 @@ If a task directory already exists, derive resume phase from artifacts:
 | `plan/spec.md` + `plan/plan.md` | Implement (Phase 4) |
 | `review.md` | Verify (Phase 6) |
 | `verify.md` | QA (Phase 7) |
-| `qa/qa.md` | Simplify (Phase 8) |
+| `qa/` (any report) | Simplify (Phase 8) |
 | `simplify.md` | Handoff (Phase 9) |
 
 Output: `[Ship] Resuming task "<title>" — phase: <derived phase>`
@@ -268,12 +268,12 @@ Agent(prompt="Run the following and write results to .ship/tasks/<task_id>/verif
 ## Phase 7: QA
 
 **Skip check:** `git diff main...HEAD --name-only`
-- Only test/docs/config changed → write skip QA_RESULT, proceed to Phase 8
+- Only test/docs/config changed → skip QA, proceed to Phase 8
 - Otherwise → **always dispatch QA**. The orchestrator MUST NOT pre-empt
   QA's own skip logic.
 
 ```
-Agent(prompt="Call Skill('qa'). Params: spec=<spec_path>, diff_cmd='git diff main...HEAD', output=.ship/tasks/<task_id>/qa/qa.md, rubric_output=.ship/tasks/<task_id>/qa/rubric.md")
+Agent(prompt="Call Skill('qa'). Params: spec=<spec_path>, diff_cmd='git diff main...HEAD'")
 ```
 
 **After return:**

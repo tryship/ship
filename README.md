@@ -41,7 +41,7 @@ You describe what you want to build. Ship handles the constraints that make AI o
 
 **review** — Find every bug in the diff — spec violations, runtime errors, race conditions, missing error handling — then diagnose the structural deficiency that breeds them. No style or formatting nits.
 
-**qa** — Starts the application, builds a rubric from the spec, and tests every acceptance criterion against the running product. Independence contract: cannot read review.md, verify.md, or plan.md. Only L1 evidence (direct observation) counts for MUST criteria. Reports verdict with fix guidance.
+**qa** — Starts the application and tests the code changes against the spec by interacting with the running product. Discovers the stack, matches testing to what changed (browser, API, CLI), and reports findings with evidence. Browser testing uses [agent-browser](https://github.com/vercel-labs/agent-browser). Independence contract: cannot read review.md, verify.md, or plan.md.
 
 **handoff** — Creates a PR with proof bundle (test results, lint, coverage, QA verdict, spec compliance). Then enters the post-PR loop: poll CI, fix failures, address review comments, resolve merge conflicts. Doesn't stop until the PR is merge-ready or retries are exhausted.
 
@@ -57,7 +57,7 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 | `/ship:plan` | Adversarial pre-coding planning with Codex challenger (2-round convergence) |
 | `/ship:dev` | Execute implementation stories from a plan — Codex implements, Claude reviews |
 | `/ship:review` | Find every bug in the diff, then diagnose the structural deficiency that breeds them |
-| `/ship:qa` | Independent QA evaluation: functional, exploratory, and health testing with L1 evidence |
+| `/ship:qa` | Independent QA: tests code changes against the spec via the running application |
 | `/ship:handoff` | PR creation with proof bundle, CI fix loop, and review comment resolution |
 | `/ship:refactor` | Diagnose structural cracks and fix directly — surgical or structural execution |
 | `/ship:setup` | Bootstrap infra + discover semantic constraints, generate AGENTS.md + CONVENTIONS.md + hookify safety rules |
@@ -109,6 +109,7 @@ Open a fresh session and give it a task that would trigger a skill — for examp
 
 Ship is built on ideas from:
 
+- [agent-browser](https://github.com/vercel-labs/agent-browser) — Vercel's headless browser CLI for AI agents
 - [Superpowers](https://github.com/obra/superpowers) — Jesse Vincent's skill library for Claude Code
 - [gstack](https://github.com/garrytan/gstack) — Garry Tan's full-stack AI development harness
 
