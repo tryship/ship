@@ -392,7 +392,7 @@ AskUserQuestion if possible).
 
 ### Step B: Generate CONVENTIONS.md
 
-Write to `.ship/rules/semantic/CONVENTIONS.md`. Only conventions that
+Write to `.ship/rules/CONVENTIONS.md`. Only conventions that
 linters can't cover (the ones confirmed in Phase 6).
 
 Format per convention:
@@ -509,7 +509,7 @@ duplicate or reorder existing rules.
 Stage all generated files:
 
 ```bash
-git add AGENTS.md .ship/rules/semantic/CONVENTIONS.md .ship/hooks/ .gitignore
+git add AGENTS.md .ship/rules/CONVENTIONS.md .ship/hooks/ .gitignore
 # Only if project shared hook was chosen:
 git add .claude/settings.json
 git commit -m "feat(setup): generate AGENTS.md and coding conventions
@@ -568,7 +568,7 @@ Harness:
 .ship/hooks/          — pre-commit hooks (if module selected), shared via core.hooksPath
 .gitignore         — updated with language ignores
 AGENTS.md          — AI handbook with conventions
-.ship/rules/semantic/CONVENTIONS.md — semantic enforcement rules
+.ship/rules/CONVENTIONS.md — semantic enforcement rules
 ```
 
 ## Reference Files

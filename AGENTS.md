@@ -26,7 +26,7 @@ Two independent layers:
 
 **Harness layer (opt-in via /ship:setup):** AI analyzes the project and generates enforceable conventions.
 - Generates `AGENTS.md` (prevention — AI reads at session start)
-- Generates `.ship/rules/semantic/CONVENTIONS.md` (enforcement — checked on every Write/Edit)
+- Generates `.ship/rules/CONVENTIONS.md` (enforcement — checked on every Write/Edit)
 - Enforcement via command hook: `scripts/check-conventions.sh` calls `claude -p` (Haiku) to judge code against CONVENTIONS.md
 
 **Workflow layer (opt-in via /ship:auto):** Fires only during ship-coding sessions.

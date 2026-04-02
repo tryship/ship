@@ -11,7 +11,7 @@ HOOK_INPUT=$(cat)
 
 # Find CONVENTIONS.md
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-CONVENTIONS_FILE="$REPO_ROOT/.ship/rules/semantic/CONVENTIONS.md"
+CONVENTIONS_FILE="$REPO_ROOT/.ship/rules/CONVENTIONS.md"
 if [[ ! -f "$CONVENTIONS_FILE" ]]; then
   exit 0
 fi
