@@ -161,7 +161,7 @@ Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remote
 ```
 Record as `BASE_BRANCH`. Use this value wherever `<base>` appears in later phases.
 
-- If `.ship/rules/semantic/CONVENTIONS.md` is missing: suggest `/ship:setup` but do not block.
+- If `.ship/rules/CONVENTIONS.md` is missing: suggest `/ship:setup` but do not block.
 
 Output: `[Ship] Task "<title>" created. Starting design phase...`
 

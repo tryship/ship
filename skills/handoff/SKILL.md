@@ -300,14 +300,58 @@ Push and create:
 
 Output: `[Ship] PR created: <url>`
 
-## Phase 8: Sync Documentation
+## Phase 8: Harness & Documentation Freshness Check
 
-After PR is created, auto-sync project documentation:
+After PR is created, verify that harness and documentation still match
+the code. Reference: `references/documentation.md` for the full workflow.
 
-1. Read the diff: `git diff <base>...HEAD --name-only`
-2. Check if related docs may be stale (README.md, AGENTS.md, CLAUDE.md, docs/)
-3. If any doc needs updating → update, commit, push
-4. If all docs current → skip silently
+**Treat stale docs as a PR-blocking finding, not background noise.**
+
+### Step A: Map the change
+
+Read the diff and list which truths changed:
+```
+Bash("git diff <base>...HEAD --name-only && git diff <base>...HEAD --stat")
+```
+
+Classify: did the diff change behavior, commands, config, naming,
+architecture, file layout, API surface, or workflow?
+
+If none of these changed → skip to Phase 9.
+
+### Step B: Check harness files
+
+For each changed truth, check if harness files reference it:
+
+1. **AGENTS.md** — grep for changed file paths, module names, commands,
+   config keys. Read any matching sections. Still accurate?
+2. **`.ship/rules/CONVENTIONS.md`** — grep for changed paths in `Scope:`
+   fields. Do the constraints still apply?
+3. **README.md** — grep for changed commands, setup steps, file paths.
+4. **Nearest local docs** — if the change is in a subsystem, check
+   the nearest local README or doc.
+
+Do NOT scan every `.md` in the repo. Only check docs that the diff
+touches or that reference the changed area.
+
+### Step C: Fix or flag
+
+- **Mechanical staleness** (wrong path, renamed command, deleted file
+  referenced in docs) → fix immediately, commit, push
+- **Semantic staleness** (architecture description no longer matches,
+  convention may not apply) → fix if confident, otherwise flag in PR
+  body as doc debt
+- **No staleness found** → continue silently
+
+### Step D: Record result
+
+Add to PR body or comment:
+```
+## Documentation Check
+- [x] AGENTS.md: checked, <updated | no update needed>
+- [x] CONVENTIONS.md: checked, <updated | no update needed | n/a>
+- [x] README.md: checked, <updated | no update needed>
+```
 
 ## Phase 9: Wait for CI
 

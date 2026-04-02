@@ -13,8 +13,8 @@
 
 | Directory | Contents | Purpose |
 |-----------|----------|---------|
-| `scripts/` | Shell scripts | Workflow hooks (stop-gate) and utilities (task-id, check-conventions) |
-| `hooks/` | `hooks.json` | Plugin-level hook registration (Stop only) |
+| `scripts/` | Shell scripts | Workflow hooks (stop-gate, session-start) and utilities (task-id, preflight, auth-headers) |
+| `hooks/` | `hooks.json` | Plugin-level hook registration (SessionStart, Stop) |
 | `skills/` | Skill dirs | Claude Code slash commands (/ship:auto, /ship:plan, etc.) |
 | `skills/setup/` | Setup skill | Infra bootstrap + convention discovery, AGENTS.md + CONVENTIONS.md generation |
 | `.claude-plugin/` | `plugin.json` | Plugin metadata for ShipAI |
@@ -26,8 +26,8 @@ Two independent layers:
 
 **Harness layer (opt-in via /ship:setup):** AI analyzes the project and generates enforceable conventions.
 - Generates `AGENTS.md` (prevention — AI reads at session start)
-- Generates `.ship/rules/semantic/CONVENTIONS.md` (enforcement — checked on every Write/Edit)
-- Enforcement via command hook: `scripts/check-conventions.sh` calls `claude -p` (Haiku) to judge code against CONVENTIONS.md
+- Generates `.ship/rules/CONVENTIONS.md` (semantic rules — injected at session start via SessionStart hook)
+- Generates `.claude/hookify.ship-*.local.md` (deterministic safety rules — real-time PreToolUse block via hookify)
 
 **Workflow layer (opt-in via /ship:auto):** Fires only during ship-coding sessions.
 - `stop-gate.sh` — blocks session exit until all pipeline artifacts are complete

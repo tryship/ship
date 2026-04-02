@@ -11,7 +11,7 @@ Detailed guides for every Ship skill — philosophy, workflow, and examples.
 | [`/ship:qa`](#qa) | **Independent QA** | Starts your app, tests every acceptance criterion against the running product. Independence contract: cannot read the review or plan. Only direct observation counts. |
 | [`/ship:handoff`](#handoff) | **Release Engineer** | Creates a PR with a proof bundle, then enters the fix loop: CI failures, review comments, merge conflicts. Doesn't stop until the PR is merge-ready or retries are exhausted. |
 | [`/ship:refactor`](#refactor) | **Structural Diagnostician** | Traces from concrete pain to structural cracks. Diagnoses and fixes directly — surgical (within-file) or structural (cross-file) execution. |
-| [`/ship:setup`](#setup) | **Repo Bootstrapper** | One command. Detects your stack, installs missing tools, configures CI/CD, discovers coding conventions, generates AGENTS.md and CONVENTIONS.md, registers enforcement. |
+| [`/ship:setup`](#setup) | **Repo Bootstrapper** | Detects stack, installs tools, configures CI/CD and pre-commit hooks, discovers semantic constraints from code and git history, generates AGENTS.md + CONVENTIONS.md + hookify safety rules. Audits existing harness for staleness. |
 
 ---
 
@@ -331,6 +331,10 @@ After creating the PR, handoff enters a loop:
 
 Max 2 rounds. If it can't get the PR merge-ready in 2 rounds, it escalates to you with a clear explanation of what's blocking.
 
+### Harness freshness check
+
+Before declaring the PR ready, handoff verifies that harness docs (AGENTS.md, CONVENTIONS.md, README.md) still match the code. Stale documentation is treated as a PR-blocking finding — not background noise.
+
 ### What it won't do
 
 - Never force push
@@ -425,31 +429,30 @@ Claude: [Refactor] Tracing from pain...
 
 ## `setup`
 
-This is the **one-command bootstrap**.
+This is the **repo bootstrapper**.
 
-New repo? Inherited codebase? Missing linter? No CI? `setup` handles all of it — and then goes further by discovering the coding conventions your team follows but never wrote down.
+New repo? Inherited codebase? Missing linter? No CI? `setup` handles all of it — and then discovers semantic constraints that AI agents would violate without project context.
 
-### Part 1: Infrastructure
+### Infrastructure
 
-Setup scans your repo and detects everything: languages (14 supported), package managers, linters, formatters, type checkers, test runners, CI/CD, pre-commit hooks. It tells you what's ready, what's missing, and what's broken. Then you pick which modules to configure:
+Detects languages (15 supported including Shell), package managers, linters, formatters, type checkers, test runners, CI/CD, and pre-commit hooks. You pick which modules to configure. It respects existing config — if you already have husky or `.pre-commit-config.yaml` working, it won't migrate.
 
-1. **Install missing tools** — linter, formatter, type checker for your stack
-2. **Pre-commit hooks** — lint + format on every commit
-3. **CI/CD** — GitHub Actions workflows
-4. **Dependabot** — automated dependency updates
-5. **AI Code Review** — automated review on PRs
+### Harness
 
-It never assumes. It never invents a default stack. If your repo already uses ESLint, it wires ESLint into pre-commit — it doesn't install Biome because it thinks Biome is better.
+Investigates code and git history for two types of rules:
 
-### Part 2: Harness
+- **Semantic rules** (CONVENTIONS.md) — things only AI can judge: "don't remove auth to fix errors", "price is in cents not dollars", "legacy module is being migrated". Injected into every session via SessionStart hook.
+- **Safety rules** (hookify) — deterministic regex checks: block editing .env files, block DROP TABLE. Real-time PreToolUse blocking.
 
-After infrastructure, setup reads your code — not all of it, but targeted investigation from entry points 2-3 levels deep. It finds patterns repeated across 3+ files that your linter can't enforce: error handling conventions, validation patterns, module boundaries, naming rules.
+If harness files already exist (AGENTS.md, CLAUDE.md, CONVENTIONS.md), setup audits them for staleness before generating.
 
-Every convention must have file:line evidence. No templates, no presets, no dogma. If the pattern isn't in the code, it doesn't become a rule.
+### Three-layer defense
 
-Then it generates:
-- **AGENTS.md** — the AI handbook for your repo. Commands, architecture, conventions, gotchas.
-- **CONVENTIONS.md** — semantic rules with correct/incorrect examples, enforced by a hook on every Write/Edit.
+| Layer | Tool | How | Cost |
+|-------|------|-----|------|
+| Real-time block | Hookify rules | regex on PreToolUse | Free |
+| Semantic context | CONVENTIONS.md | SessionStart injection | Free |
+| Commit-time | Pre-commit hook | lint + format | Free |
 
 ### Example
 
@@ -457,51 +460,29 @@ Then it generates:
 You:   /ship:setup
 
 Claude: [Setup] Detecting stack...
-        TypeScript (pnpm), Python (uv)
-        Linter: oxlint (ready), ruff (ready)
-        Formatter: prettier (ready), ruff (ready)
-        Type checker: tsc (ready), pyright (missing)
-        Test runner: vitest (ready), pytest (ready)
-        CI/CD: none
-        Pre-commit: none
+        TypeScript (pnpm)
+        Linter: oxlint (ready)
+        Formatter: prettier (ready)
+        Test runner: vitest (ready)
+        Pre-commit: lint-staged configured, no hook runner ⚠
 
-        Select modules:
-        1. [x] Install missing tools (pyright)
-        2. [x] Pre-commit hooks
-        3. [ ] CI/CD (GitHub Actions)
-        4. [ ] Dependabot
-        5. [ ] AI Code Review
+        [Setup] Wiring lint-staged via core.hooksPath...
 
-You:    A (all recommended)
+        [Setup] Investigating constraints...
+        Git history: 1 revert (notebook metadata), 12 bug fixes
+        Code: auth flow in src/auth/, no obvious semantic traps
 
-Claude: [Setup] Installing pyright... done
-        [Setup] Configuring lint-staged + husky... done
-        [Setup] Configuring GitHub Actions CI... done
-        [Setup] Adding dependabot.yml... done
-        [Setup] Configuring AI code review... done
+        SAFETY RULES (hookify):
+          ✓ [D1] Block .env file edits
 
-        [Setup] Part 2: Investigating conventions...
-        Read src/server.ts → src/middleware/ → src/routes/
-        Read src/services/ → src/repositories/
+        SEMANTIC RULES (CONVENTIONS.md):
+          ✓ [S1] Don't remove auth checks to fix errors
+              Why: AI agents delete validation to make errors go away
 
-        Found 4 conventions linters can't cover:
+        [Setup] Complete.
 
-        ✓ [1] All service methods return Result<T, AppError>
-              Evidence: src/services/user.ts:12, billing.ts:8, auth.ts:15 (7/7)
-        ✓ [2] Repository methods throw, services catch and wrap
-              Evidence: src/repositories/user.ts:23, src/services/user.ts:14 (5/5)
-        ✓ [3] Route handlers never call repositories directly
-              Evidence: 0 imports from repositories/ in routes/ (12 files checked)
-        ✓ [4] Error responses use AppError.toResponse()
-              Evidence: src/middleware/errorHandler.ts:8, routes/api.ts:34 (6/6)
-
-You:    Generate as shown
-
-Claude: [Setup] Complete.
-
-        AGENTS.md: generated (142 lines)
-        CONVENTIONS.md: 4 conventions
-        Hook: registered in .claude/settings.json
-
-        Every Write/Edit will now be checked against these conventions.
+        AGENTS.md: generated
+        CONVENTIONS.md: 1 semantic rule
+        Hookify: 1 safety rule
+        Pre-commit: wired via core.hooksPath
 ```

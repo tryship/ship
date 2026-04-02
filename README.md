@@ -31,7 +31,7 @@ You describe what you want to build. Ship handles the constraints that make AI o
 
 ## The Basic Workflow
 
-**setup** — Bootstrap repo infrastructure (detect languages, install missing tools, configure CI/CD, pre-commit hooks) and discover coding conventions linters can't cover. Generates AGENTS.md (prevention) and CONVENTIONS.md (enforcement). Registers a semantic check hook.
+**setup** — Bootstrap repo infrastructure (detect languages, install tools, configure CI/CD, pre-commit hooks) and discover semantic constraints from code and git history. Generates AGENTS.md, CONVENTIONS.md (injected at session start), and hookify safety rules. Audits existing harness for staleness.
 
 **plan** — Reads the codebase yourself (no delegation), traces call chains and integration surfaces, writes spec + plan with file:line references. Hands it to an independent Codex challenger for 2 rounds of adversarial review. You see the plan only after it survives falsification.
 
@@ -60,7 +60,7 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 | `/ship:qa` | Independent QA evaluation: functional, exploratory, and health testing with L1 evidence |
 | `/ship:handoff` | PR creation with proof bundle, CI fix loop, and review comment resolution |
 | `/ship:refactor` | Diagnose structural cracks and fix directly — surgical or structural execution |
-| `/ship:setup` | Bootstrap infra + discover conventions, generate AGENTS.md + CONVENTIONS.md, register enforcement hook |
+| `/ship:setup` | Bootstrap infra + discover semantic constraints, generate AGENTS.md + CONVENTIONS.md + hookify safety rules |
 
 ## Installation
 

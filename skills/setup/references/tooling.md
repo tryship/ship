@@ -23,23 +23,16 @@ Purpose: Install tools that Phase 1 marked as `missing`. Skip `ready` and `broke
 After successful installs, record the newly available tools and their
 commands in working memory for the completion summary.
 
-### 3. Update .gitignore
+### 3. Update .gitignore (tool artifacts only)
 
-- Add install artifacts only for the languages involved in this repo.
+Add gitignore entries for newly installed tools only (e.g., `.ruff_cache/`
+if ruff was installed). The comprehensive .gitignore generation happens
+later in Phase 7 Step D — do not duplicate that work here.
+
 - Only add entries that are not already present.
+- Only add entries specific to tools installed in this step.
 
-Language-specific additions:
-
-| Language | Entries |
-|---|---|
-| Python | `__pycache__/`, `*.pyc`, `.ruff_cache/`, `.venv/` |
-| TypeScript | `node_modules/`, `dist/`, `coverage/` |
-| Go | `/bin/`, `/vendor/` |
-| PHP | `vendor/` |
-| Ruby | `.bundle/` |
-| General | `.DS_Store`, `*.log` |
-
-### 5. Commit
+### 4. Commit
 
 - Commit with a conventional commit message:
 

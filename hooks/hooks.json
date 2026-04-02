@@ -1,6 +1,16 @@
 {
-  "description": "Ship plugin hooks — workflow quality gates",
+  "description": "Ship plugin hooks — convention injection and workflow quality gates",
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "hooks": [

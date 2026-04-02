@@ -312,3 +312,17 @@ Detection order:
 - Verify: `ctest --version`
 - Default (if missing): `ctest`
 - Install: comes with CMake
+
+## Shell
+
+**Linter**
+- Check: `.shellcheckrc`, `shellcheck` in CI config
+- Verify: `shellcheck --version`
+- Default (if missing): `shellcheck` (optional — shell-only repos may not need it)
+- Install: `brew install shellcheck` or `apt-get install shellcheck`
+
+**Formatter**
+- Check: `.editorconfig` with shell settings, `shfmt` in CI config
+- Verify: `shfmt --version`
+- Default (if missing): `shfmt` (optional)
+- Install: `brew install shfmt` or `go install mvdan.cc/sh/v3/cmd/shfmt@latest`
