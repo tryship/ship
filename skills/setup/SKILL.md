@@ -49,8 +49,6 @@ If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
 ---
 
-# Part 1: Infrastructure
-
 ## Phase 1: Detect (automatic)
 
 No user interaction in this phase.
@@ -86,7 +84,7 @@ Scan repo files, then verify package manager / build tool exists on PATH.
 If no language from the table above is detected, the repo may be
 documentation-only, config-only, or use an unsupported language.
 In that case: skip Install Tools and Pre-commit Hooks modules in
-Phase 2 (mark as `n/a`), and proceed directly to Part 2 (Harness).
+Phase 2 (mark as `n/a`), and proceed directly to Phase 3.5.
 
 ### Step C: Toolchain Detection
 
@@ -186,8 +184,6 @@ git commit -m "<conventional commit message>"
 
 ---
 
-# Part 2: Harness
-
 ## Phase 3.5: Harness Audit (only if harness already exists)
 
 Before generating anything, check if the project already has harness
@@ -209,15 +205,15 @@ yet covered.
 
 If B: treat as full init — proceed to Phase 4 as if no harness exists.
 
-If C: skip Part 2 entirely.
+If C: skip Phase 4-7 entirely.
 
 ## Phase 4: Survey
 
-Do NOT read file contents yet. Reuse language/structure data from Part 1.
+Do NOT read file contents yet. Reuse language/structure data from Phase 1.
 
 ### Step A: Monorepo detection
 
-If Part 1 revealed multiple sub-projects (each with their own manifest
+If Phase 1 revealed multiple sub-projects (each with their own manifest
 file, separate language, or independent directory structure), this is
 a monorepo.
 
