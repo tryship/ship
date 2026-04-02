@@ -406,27 +406,16 @@ real-time layer, not the only layer.
 
 #### Generate rule files
 
-For each deterministic finding, write `.claude/hookify.ship-<name>.local.md`:
-
-```markdown
----
-name: ship-protect-env
-enabled: true
-event: file
-conditions:
-  - field: file_path
-    operator: regex_match
-    pattern: \.env$
-action: block
----
-
-Do not edit .env files directly.
+Invoke the hookify skill to learn the exact rule format:
+```
+Skill("hookify:writing-rules")
 ```
 
-Use `event: bash` for command-level rules. Hookify auto-discovers
-`.claude/hookify.*.local.md` files — no restart needed.
+For each deterministic finding from Phase 5, generate a hookify rule
+file at `.claude/hookify.ship-<name>.local.md` following the format
+from the hookify skill. Prefix all rule names with `ship-`.
 
-Also mirror these checks in `.ship/hooks/pre-commit` as a safety net.
+Hookify auto-discovers `.claude/hookify.*.local.md` files — no restart needed.
 
 Semantic rules (CONVENTIONS.md) are injected at session start by the
 ship plugin's SessionStart hook — no per-edit checking needed.
