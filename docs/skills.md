@@ -4,7 +4,7 @@ Detailed guides for every Ship skill — philosophy, workflow, and examples.
 
 | Skill | Role | What it does |
 |-------|------|--------------|
-| [`/ship:auto`](#auto) | **Pipeline Orchestrator** | The full pipeline. One command from task description to merge-ready PR. Delegates every phase to fresh subagents with quality gates at every transition. You approve the plan once; it handles the rest. |
+| [`/ship:auto`](#auto) | **Pipeline Orchestrator** | The full pipeline. One command from task description to merge-ready PR. Delegates every phase to fresh subagents with quality gates at every transition. Fully autonomous — no approval gates. |
 | [`/ship:design`](#design) | **Adversarial Designer** | You and Codex independently investigate the codebase and produce specs in parallel. Divergences resolved by code evidence and debate. Merged spec feeds an executable TDD plan validated by Codex drill. |
 | [`/ship:dev`](#dev) | **Implementation Engine** | Executes stories from a plan. Codex writes code, Claude reviews — different models catching each other's blind spots. Stories run sequentially; review must pass before the next one starts. |
 | [`/ship:review`](#review) | **Staff Engineer** | Find every bug in the diff, then diagnose the structural deficiency that breeds them. Bugs are symptoms — the structural crack is the disease. |
@@ -25,7 +25,7 @@ You describe what you want to build. Ship handles the rest — plan, implement, 
 
 AI coding agents are capable but unreliable. They skip tests, hallucinate about code they haven't read, review their own work and call it good, and declare victory without evidence. Ship makes these failure modes structurally impossible.
 
-The orchestrator itself is **read-only**. It never reads code, never writes code, never touches artifacts. All it does is delegate to fresh subagents and check quality gates. This preserves the coordination window for decisions that matter — instead of filling it with implementation details that bias every downstream phase.
+The orchestrator delegates all code changes to fresh subagents. It may read code when investigating issues (e.g. NEEDS_CONTEXT from dev), but never writes code itself. State is tracked in `.ship/ship-auto.local.md` — the stop-gate hook prevents exit while the pipeline is active.
 
 ### The GAN architecture
 
@@ -33,27 +33,25 @@ Implementation and review use **different models**. Codex generates code. Claude
 
 The QA evaluator is contractually forbidden from reading the review or the plan. It can only look at the spec and the running application. Fresh context per phase means no accumulated bias, no rubber-stamping.
 
-### Nine phases
+### Seven phases
 
 ```
-Design → Approve → Dev → Review → Verify → QA → Simplify → Handoff
+Bootstrap → Design → Dev → Review → QA → Simplify → Handoff
 ```
 
-1. **Bootstrap** — init task directory, detect tooling
+1. **Bootstrap** — init task directory, detect base branch, create feature branch, write state file
 2. **Design** — invoke `/ship:design` for adversarial planning
-3. **Approve** — present the plan to you. This is the only human gate.
-4. **Dev** — invoke `/ship:dev` to execute implementation stories
-5. **Review** — invoke `/ship:review` for staff-engineer code review
-6. **Verify** — run tests + lint. Up to 3 retry rounds.
-7. **QA** — invoke `/ship:qa` against the running application
-8. **Simplify** — behavior-preserving cleanup (dead code, redundant abstractions)
-9. **Handoff** — invoke `/ship:handoff` to create PR and shepherd it to merge-ready
+3. **Dev** — invoke `/ship:dev` to execute implementation stories
+4. **Review** — invoke `/ship:review` for staff-engineer code review
+5. **QA** — invoke `/ship:qa` against the running application
+6. **Simplify** — behavior-preserving cleanup via standalone simplify skill
+7. **Handoff** — invoke `/ship:handoff` to create PR and shepherd it to merge-ready
 
-Every transition has a quality gate. If the gate fails, the phase retries with strict caps (verify: 3, review: 3, QA: 2) before escalating to you.
+Review and QA have fix loops: if bugs/issues are found, auto dispatches dev to fix them, then re-runs the phase. No phase is ever skipped.
 
 ### State lives on disk
 
-The current phase is derived from which artifacts exist: `plan/spec.md` present → design done. `review.md` filled → review done. `qa/qa.md` has a PASS verdict → QA done. The stop-gate hook checks these artifacts before allowing the session to exit — if any phase was skipped or incomplete, you're sent back.
+The current phase is tracked in `.ship/ship-auto.local.md` — a YAML frontmatter file with task_id, branch, base_branch, and phase. The stop-gate hook reads this file and blocks session exit while the pipeline is active. On resume, auto reads the phase field and jumps directly to that phase.
 
 ### Example
 
@@ -83,32 +81,27 @@ Claude: [Ship] Bootstrapping task: rate-limit-upload
         │ - SHOULD: Existing rate limiter tests still pass   │
         └───────────────────────────────────────────────────┘
 
-        Approve this plan? (Y to proceed, N to revise)
-
-You:    Y
-
-Claude: [Ship] Phase 4: Implementing 3 stories...
+        [Ship] Dev: Implementing 3 stories...
         [Dev] Story 1: PASS — middleware wired, tests green
         [Dev] Story 2: PASS — quota logic added with Redis counter
         [Dev] Story 3: PASS — 429 + Retry-After verified
 
-        [Ship] Phase 5: Code Review...
-        [Review] 1 finding: Redis key missing TTL — auto-fixed.
+        [Ship] Review: Code review...
+        [Review] 1 finding: Redis key missing TTL
+        [Ship] Dev: Fixing review bugs...
+        [Ship] Review: Re-reviewing... clean.
 
-        [Ship] Phase 6: Verify — tests pass, lint clean.
-
-        [Ship] Phase 7: QA — testing against running app...
+        [Ship] QA: Testing against running app...
         [QA] 3/3 MUST criteria passed (L1 evidence: curl responses)
-        [QA] 1/1 SHOULD criteria passed
-        [QA] Verdict: PASS (score: 95/100)
+        [QA] Verdict: PASS
 
-        [Ship] Phase 8: Simplify — no dead code found.
+        [Ship] Simplify: No dead code found.
 
-        [Ship] Phase 9: Handoff — creating PR...
+        [Ship] Handoff: Creating PR...
         PR #48 created. CI passing. Ready for review.
 ```
 
-One command. Task description to merge-ready PR. You approved the plan once. Everything else was autonomous.
+One command. Task description to merge-ready PR. Fully autonomous.
 
 ---
 

@@ -30,7 +30,7 @@ Two independent layers:
 - Generates `.claude/hookify.ship-*.local.md` (deterministic safety rules — real-time PreToolUse block via hookify)
 
 **Workflow layer (opt-in via /ship:auto):** Fires only during ship-coding sessions.
-- `stop-gate.sh` — blocks session exit until all pipeline artifacts are complete
+- `stop-gate.sh` — blocks session exit while `.ship/ship-auto.local.md` is active
 
 ## Code Style
 
@@ -58,4 +58,4 @@ Two independent layers:
 - macOS `/tmp` resolves to `/private/tmp` via symlink. `git rev-parse --show-toplevel` returns the resolved path. All path matching must handle both forms.
 - Plugin-level hooks fire for ALL sessions. Project-level hooks (in `.claude/settings.json`) fire only for that project.
 - Hook handlers run in parallel when multiple match the same event. Hooks must not depend on execution order.
-- `stop-gate.sh` checks `stop_hook_active` to prevent infinite loops. If it blocked once, it lets go on retry.
+- `stop-gate.sh` reads `.ship/ship-auto.local.md` state file. Blocks only the session that started the pipeline (session isolation). Subagents are never blocked.

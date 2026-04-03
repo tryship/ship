@@ -1,10 +1,10 @@
 ---
 name: auto
-version: 0.4.0
+version: 0.5.0
 description: >
-  Full pipeline orchestrator: plan → implement → review → verify → QA → simplify → handoff.
-  Read-only coordinator that delegates every phase to specialized subagents with quality gates
-  at every transition. Use when the task involves a scoped code change.
+  Full pipeline orchestrator: design → dev → review → QA → simplify → handoff.
+  Thin coordinator that delegates every phase to its skill and handles verdicts.
+  Use when the task involves a scoped code change.
 allowed-tools:
   - Bash
   - Read
@@ -28,36 +28,18 @@ If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
 # Ship: Auto
 
-Execute scoped code changes by orchestrating fresh subagents through
-a pipeline — from design through PR — with quality gates at every
-transition.
-
-## Principal Contradiction
-
-**Individual phase correctness vs full-pipeline correctness.**
-
-Each skill can produce good output in isolation, but chaining them
-exposes system-level failures: a plan that implement misinterprets,
-code that passes review but fails QA, a branch that works locally
-but breaks in CI. Auto exists to ensure that partial correctness
-at each stage compounds into whole-pipeline correctness — not
-whole-pipeline failure. This is the relationship between local
-battles and the overall war.
+Thin orchestrator that chains design → dev → review → QA →
+simplify → handoff. Each phase is fully owned by its skill. Auto's
+only job: call the skill, read the verdict, decide what's next.
 
 ## Core Principle
 
 ```
-READ-ONLY ORCHESTRATOR.
-NEVER READ CODE, WRITE CODE, OR WRITE ARTIFACTS YOURSELF.
-DELEGATE EVERYTHING. DECIDE EVERYTHING.
-COORDINATION COMMANDS (git rev-parse, git status, mkdir) ARE ALLOWED.
+You dispatch Agent() calls and read their responses.
+You may read code when needed (e.g. investigating NEEDS_CONTEXT).
+You do NOT write code — all code changes go through subagents.
+Allowed: git commands, mkdir, cat (for state file), Bash for coordination, Read for investigation.
 ```
-
-You delegate every phase to specialized subagents with isolated
-context. They never inherit your session history. You never pollute
-your context window with implementation detail. Your job: bootstrap
-state, interpret results, decide what to delegate next, advance
-through the pipeline.
 
 ## Process Flow
 
@@ -66,41 +48,30 @@ digraph auto {
     rankdir=TB;
 
     "Start" [shape=doublecircle];
-    "Bootstrap (init task dir, detect tooling)" [shape=box];
+    "Bootstrap" [shape=box];
     "Design (/ship:design)" [shape=box];
-    "User approves plan?" [shape=diamond];
-    "Implement (/ship:dev)" [shape=box];
-    "Review (code review)" [shape=box];
-    "Review clean?" [shape=diamond];
-    "Verify (tests + lint + spec)" [shape=box];
-    "Verify passed?" [shape=diamond];
+    "Dev (/ship:dev)" [shape=box];
+    "Review (/ship:review)" [shape=box];
+    "Review verdict?" [shape=diamond];
     "QA (/ship:qa)" [shape=box];
-    "QA passed?" [shape=diamond];
-    "Simplify (behavior-preserving cleanup)" [shape=box];
+    "QA verdict?" [shape=diamond];
+    "Simplify" [shape=box];
     "Simplify broke tests?" [shape=diamond];
     "Handoff (/ship:handoff)" [shape=box];
     "PR merge-ready" [shape=doublecircle];
-    "STOP: BLOCKED — escalate to user" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
 
-    "Start" -> "Bootstrap (init task dir, detect tooling)";
-    "Bootstrap (init task dir, detect tooling)" -> "Design (/ship:design)";
-    "Design (/ship:design)" -> "User approves plan?";
-    "User approves plan?" -> "Design (/ship:design)" [label="revise"];
-    "User approves plan?" -> "Implement (/ship:dev)" [label="approved"];
-    "Implement (/ship:dev)" -> "Review (code review)";
-    "Review (code review)" -> "Review clean?";
-    "Review clean?" -> "Implement (/ship:dev)" [label="findings, fix"];
-    "Review clean?" -> "Verify (tests + lint + spec)" [label="clean"];
-    "Verify (tests + lint + spec)" -> "Verify passed?";
-    "Verify passed?" -> "Implement (/ship:dev)" [label="fail, retry ≤3"];
-    "Verify passed?" -> "QA (/ship:qa)" [label="pass"];
-    "Verify passed?" -> "STOP: BLOCKED — escalate to user" [label="retries exhausted"];
-    "QA (/ship:qa)" -> "QA passed?";
-    "QA passed?" -> "Implement (/ship:dev)" [label="fail, retry ≤2"];
-    "QA passed?" -> "Simplify (behavior-preserving cleanup)" [label="pass"];
-    "QA passed?" -> "STOP: BLOCKED — escalate to user" [label="retries exhausted"];
-    "Simplify (behavior-preserving cleanup)" -> "Simplify broke tests?";
-    "Simplify broke tests?" -> "Verify (tests + lint + spec)" [label="yes, revert + skip"];
+    "Start" -> "Bootstrap";
+    "Bootstrap" -> "Design (/ship:design)";
+    "Design (/ship:design)" -> "Dev (/ship:dev)";
+    "Dev (/ship:dev)" -> "Review (/ship:review)";
+    "Review (/ship:review)" -> "Review verdict?";
+    "Review verdict?" -> "Dev (/ship:dev)" [label="bugs, fix loop"];
+    "Review verdict?" -> "QA (/ship:qa)" [label="clean"];
+    "QA (/ship:qa)" -> "QA verdict?";
+    "QA verdict?" -> "Dev (/ship:dev)" [label="FAIL, fix loop"];
+    "QA verdict?" -> "Simplify" [label="PASS"];
+    "Simplify" -> "Simplify broke tests?";
+    "Simplify broke tests?" -> "Handoff (/ship:handoff)" [label="revert"];
     "Simplify broke tests?" -> "Handoff (/ship:handoff)" [label="clean"];
     "Handoff (/ship:handoff)" -> "PR merge-ready";
 }
@@ -108,302 +79,508 @@ digraph auto {
 
 ## Roles
 
-| Role | Who | Why |
-|------|-----|-----|
-| Orchestrator | **You (Claude)** | Read-only coordinator, no code/tests |
-| Design | **/ship:design** (subagent) | Adversarial planning with Codex |
-| Implementation | **/ship:dev** (subagent) | Codex MCP implements, Claude reviews |
-| Code review | **/ship:review** (subagent) | Staff-engineer review: find all bugs + diagnose structural deficiencies |
-| Verification | **Agent** (subagent, runs TEST_CMD + lint, writes verify.md) | Keeps orchestrator artifact-free |
-| QA | **/ship:qa** (subagent) | Independent testing against running app |
-| Simplify | **simplify** (Claude built-in skill, via Agent) | Behavior-preserving cleanup |
-| Handoff | **/ship:handoff** (subagent) | PR creation + CI loop |
+| Role | Who |
+|------|-----|
+| Orchestrator | **You (Claude)** |
+| Design | **/ship:design** — produces spec + plan |
+| Dev | **/ship:dev** — implements stories, per-story review, cross-story regression |
+| Code review | **/ship:review** — staff-engineer review of full diff |
+| QA | **/ship:qa** — independent testing against running app |
+| Simplify | **simplify** (standalone skill) — behavior-preserving cleanup |
+| Handoff | **/ship:handoff** — PR creation, CI loop, proof bundle |
 
 ## Hard Rules
 
-1. You have NO Write or Edit tools. All artifacts are produced by subagents or MCP calls.
-2. All codebase work goes through subagents — never read code yourself.
-3. Derive phase from artifacts on disk (see resume table).
-4. You own the decision loop — read output, decide next action.
-5. Always report progress after every phase transition.
+1. All code changes go through subagents. You may read code for investigation.
+2. State file writes use Bash (`cat > file`). All other artifacts are produced by subagents.
+3. Resume uses the `phase` field in the state file. No artifact guessing.
+4. You own the decision loop — read Agent return, decide next action.
+5. Report progress after every phase transition.
 6. Never dispatch subagents in background.
-
-## Quality Gates
-
-| Gate | Condition | Fail action |
-|------|-----------|-------------|
-| Bootstrap → Design | Task dir exists, tooling detected | Re-bootstrap |
-| Design → Approval | spec.md + plan.md non-empty on disk | Escalate BLOCKED |
-| Approval → Implement | User said "proceed" | Wait or re-design |
-| Implement → Review | New commits exist (HEAD advanced) | Escalate BLOCKED |
-| Review → Verify | No bugs in review.md | Fix → re-review (max 3) |
-| Verify → QA | Tests + lint pass | Fix → re-verify (max 3) |
-| QA → Simplify | QA PASS or SKIP | Fix → re-verify → re-QA (max 2) |
-| Simplify → Handoff | Tests still pass after simplify | Revert simplify, proceed |
-| Handoff → Done | PR merge-ready | Fix loop in handoff (max 2) |
+7. Each skill owns its own intra-phase logic. Auto owns inter-phase flow and retry loops.
 
 ---
 
 ## Phase 1: Bootstrap
 
-### Step A: Init task directory
+**State file:** `.ship/ship-auto.local.md`
 
-Create task directory and detect repo tooling:
+### Step A: Check for active task
+
 ```
-Bash("mkdir -p .ship/tasks/<task_id>")
+Read(".ship/ship-auto.local.md")
 ```
 
-Detect languages, lint config, test command. Record `TASK_ID` and `TASK_DIR`.
+- **File exists** → read frontmatter. Extract `task_id`, `branch`, `base_branch`, `phase`. Jump to Step C (resume).
+- **File does not exist** → proceed to Step B (new task).
 
-Detect the base branch:
-```
-Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || git rev-parse --verify origin/main >/dev/null 2>&1 && echo main || echo master")
-```
-Record as `BASE_BRANCH`. Use this value wherever `<base>` appears in later phases.
+### Step B: New task
 
-- If `.ship/rules/CONVENTIONS.md` is missing: suggest `/ship:setup` but do not block.
+Generate task ID:
+```
+Bash("${CLAUDE_PLUGIN_ROOT}/scripts/task-id.sh '<description>'")
+```
+Record as `TASK_ID`.
+
+Create task directory:
+```
+Bash("mkdir -p .ship/tasks/<TASK_ID>")
+```
+
+Detect base branch:
+```
+Bash("git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || (git rev-parse --verify origin/main >/dev/null 2>&1 && echo main || echo master)")
+```
+Record as `BASE_BRANCH`. Use this value in ALL later phases — never hardcode `main`.
+
+Ensure we're on a feature branch — never work directly on `BASE_BRANCH`:
+```
+CURRENT_BRANCH=$(git branch --show-current)
+if [ "$CURRENT_BRANCH" = "<BASE_BRANCH>" ]; then
+  git checkout -b ship/<TASK_ID>
+fi
+BRANCH=$(git branch --show-current)
+```
+
+Write state file (via Bash):
+```markdown
+---
+active: true
+task_id: <TASK_ID>
+session_id: ${CLAUDE_CODE_SESSION_ID}
+branch: <BRANCH>
+base_branch: <BASE_BRANCH>
+phase: design
+started_at: "<ISO 8601 timestamp>"
+---
+
+<original user description>
+```
+
+If `.ship/rules/CONVENTIONS.md` is missing: suggest `/ship:setup` but do not block.
 
 Output: `[Ship] Task "<title>" created. Starting design phase...`
 
-### Step B: Resume (if applicable)
+### Step C: Resume
 
-If a task directory already exists, derive resume phase from artifacts:
+Read `phase` from state file frontmatter → jump directly to that phase.
 
-| Last non-empty artifact | Resume at |
-|-------------------------|-----------|
-| (none) | Design (Phase 2) |
-| `plan/spec.md` + `plan/plan.md` | Implement (Phase 4) |
-| `review.md` | Verify (Phase 6) |
-| `verify.md` | QA (Phase 7) |
-| `qa/` (any report) | Simplify (Phase 8) |
-| `simplify.md` | Handoff (Phase 9) |
+Update `session_id` in state file to current session (so this session owns the task).
 
-Output: `[Ship] Resuming task "<title>" — phase: <derived phase>`
+Output: `[Ship] Resuming task "<task_id>" — phase: <phase>`
+
+---
 
 ## Phase 2: Design
 
-Dispatch a subagent to produce spec + plan via adversarial planning.
-
-**Check existing:**
 ```
-Bash("[ -s .ship/tasks/<task_id>/plan/spec.md ] && [ -s .ship/tasks/<task_id>/plan/plan.md ] && echo 'PLAN_FOUND' || echo 'NO_PLAN'")
-```
-If `PLAN_FOUND`: skip to Phase 3.
+Agent(prompt="Call Skill('design').
+  You are invoked by /ship:auto — do NOT ask the user questions. Treat
+  any escalated items as BLOCKED and return.
+  Task description: <description from state file body>
+  task_id: <TASK_ID>
+  Artifacts go to: .ship/tasks/<TASK_ID>/plan/
+  Current branch: <BRANCH>
+  HEAD SHA: <current HEAD>
 
-If `NO_PLAN`: dispatch plan. Plan will detect whether spec.md already
-exists (e.g. from a prior refactor diagnosis) and preserve it, producing
-only plan.md. If spec.md does not exist, plan produces both.
-
-```
-Agent(prompt="Call Skill('design'). Params: repo=<repo>, task=<description>, task_id=<id>, artifact_dir=.ship/tasks/<task_id>/plan/")
-```
-
-**After return:** verify both `spec.md` and `plan.md` exist and are non-empty. If incomplete → escalate BLOCKED.
-
-Extract stories from `plan/plan.md`. Output: `[Ship] Design complete — <N> stories extracted.`
-
-## Phase 3: User Approval
-
-The ONE user interaction gate — everything else is autonomous.
-
-Present summary via AskUserQuestion:
-```
-[Ship] Design complete. Here's what I'll build:
-
-Goal: <1-2 sentence goal from spec.md>
-Files affected: <list>
-Stories: <numbered list with titles>
-Estimated scope: <N> stories, <N> file changes
+  When done, end your response with:
+  [RESULT]
+  status: DONE|BLOCKED|NEEDS_CONTEXT
+  detail: <one-line summary>
+  artifacts: <files written>
+  [/RESULT]")
 ```
 
-Options:
-- A) Proceed → Phase 4
-- B) Revise → re-dispatch design with feedback (max 2 rounds)
-- C) Show full spec → output spec.md + plan.md, then re-ask
+**After return:** read `[RESULT]` from Agent response.
+- `status: DONE` → proceed
+- `status: BLOCKED` or `NEEDS_CONTEXT` → re-dispatch with more context (max 2 rounds)
 
-## Phase 4: Implement
+**State update:** set `phase: dev` in `.ship/ship-auto.local.md`.
+
+Output: `[Ship] Design complete — <N> stories identified. Starting dev...`
+
+## Phase 3: Dev (ship:dev)
 
 Record pre-dispatch HEAD SHA.
 
 ```
-Agent(prompt="Call Skill('dev'). Params: task_dir=.ship/tasks/<task_id>, spec=.ship/tasks/<task_id>/plan/spec.md, plan=.ship/tasks/<task_id>/plan/plan.md")
+Agent(prompt="Call Skill('dev').
+  You are invoked by /ship:auto — do NOT ask the user questions.
+  If you cannot find TEST_CMD or need context, return NEEDS_CONTEXT.
+  task_dir: .ship/tasks/<TASK_ID>
+  spec: .ship/tasks/<TASK_ID>/plan/spec.md
+  plan: .ship/tasks/<TASK_ID>/plan/plan.md
+  base_branch: <BASE_BRANCH>
+
+  When done, end your response with:
+  [RESULT]
+  status: DONE|DONE_WITH_CONCERNS|BLOCKED|NEEDS_CONTEXT
+  detail: <one-line summary, e.g. '4/4 stories complete, tests pass'>
+  artifacts: <files written>
+  [/RESULT]")
 ```
 
-**After return:** verify HEAD advanced. If unchanged → escalate BLOCKED.
+**After return:** read `[RESULT]` from Agent response.
 
-Output: `[Ship] All stories implemented. Starting code review...`
+| status | Action |
+|--------|--------|
+| DONE | proceed |
+| DONE_WITH_CONCERNS | Log concerns from `detail`, proceed |
+| BLOCKED | Read `detail`, re-dispatch with fix instructions (max 2) |
+| NEEDS_CONTEXT | Read `detail` for what's missing, investigate, re-dispatch (max 2) |
 
-## Phase 5: Review (/ship:review, independent)
+**State update:** set `phase: review` in `.ship/ship-auto.local.md`.
 
-Global code review across all stories. Implement's per-story review
-catches story-level issues; this catches cross-story bugs and
-diagnoses the structural deficiencies that breed them.
+Output: `[Ship] Dev complete. Starting review...`
 
-```
-Agent(prompt="Call Skill('review'). Params: spec=.ship/tasks/<task_id>/plan/spec.md, task_id=<task_id>, task_dir=.ship/tasks/<task_id>, base_branch=<base>")
-```
-
-**After return:** read `.ship/tasks/<task_id>/review.md`.
-- No bugs → proceed to Phase 6
-- Bugs found → fix via Codex MCP, re-review (max 3 rounds)
-
-## Phase 6: Verify (Agent subagent)
-
-Mechanical verification: run tests, linter, type checker. Delegated to
-a subagent to keep the orchestrator artifact-free.
+## Phase 4: Review (ship:review)
 
 ```
-Agent(prompt="Run the following and write results to .ship/tasks/<task_id>/verify.md:
-  1. Tests: <TEST_CMD>
-  2. Linter: <LINT_CMD>
-  First line of verify.md must be: <!-- VERIFY_RESULT: PASS|FAIL -->
-  Then full output of each command.
-  If any command fails, result is FAIL.")
+Agent(prompt="Call Skill('review').
+  You are invoked by /ship:auto (pipeline mode) — do NOT ask the user
+  questions. If you cannot read the diff or spec, do a diff-only review.
+  task_id: <TASK_ID>
+  task_dir: .ship/tasks/<TASK_ID>
+  spec: .ship/tasks/<TASK_ID>/plan/spec.md
+  base_branch: <BASE_BRANCH>
+  Write review to: .ship/tasks/<TASK_ID>/review.md
+
+  When done, end your response with:
+  [RESULT]
+  status: DONE|BLOCKED
+  detail: <e.g. 'No bugs found' or '3 bugs found: B1, B2, B3' or 'Cannot read diff'>
+  artifacts: .ship/tasks/<TASK_ID>/review.md
+  [/RESULT]")
 ```
 
-**After return:** read first line of `verify.md` for PASS/FAIL.
-- PASS → Phase 7
-- FAIL → fix via Codex MCP → re-verify (max 3 rounds, then escalate)
+**After return:** read `[RESULT]` from Agent response.
 
-## Phase 7: QA
+| status / detail | Action |
+|-----------------|--------|
+| DONE, no bugs found | proceed |
+| DONE, N bugs found | enter review-fix loop (below) |
+| BLOCKED | re-dispatch with adjusted context (max 2 rounds) |
 
-**Skip check:** `git diff main...HEAD --name-only`
-- Only test/docs/config changed → skip QA, proceed to Phase 8
-- Otherwise → **always dispatch QA**. The orchestrator MUST NOT pre-empt
-  QA's own skip logic.
+### Review-fix loop
 
 ```
-Agent(prompt="Call Skill('qa'). Params: spec=<spec_path>, diff_cmd='git diff main...HEAD'")
+loop:
+  1. Set phase: dev
+  2. Dispatch ship:dev to fix the bugs (pass bug details from review Agent return):
+     Agent(prompt="Call Skill('dev').
+       You are invoked by /ship:auto — fix mode.
+       These bugs were found by code review. Fix them.
+       Bugs: <bug details from review Agent return>
+       task_dir: .ship/tasks/<TASK_ID>
+       spec: .ship/tasks/<TASK_ID>/plan/spec.md
+       base_branch: <BASE_BRANCH>
+       ...same [RESULT] contract...")
+  3. Set phase: review
+  4. Re-dispatch ship:review (same prompt as above)
+  5. Read [RESULT]:
+     - No bugs found → break, proceed
+     - Bugs found → next round
 ```
 
-**After return:**
-- PASS → Phase 8
-- FAIL → fix → re-verify → re-QA (max 2 rounds, then escalate)
-- SKIP → Phase 8
+**State update:** set `phase: qa` in `.ship/ship-auto.local.md`.
 
-## Phase 8: Simplify
+Output: `[Ship] Review clean. Starting QA...`
+
+## Phase 5: QA (ship:qa)
+
+```
+Agent(prompt="Call Skill('qa').
+  You are invoked by /ship:auto — do NOT ask the user questions.
+  task_dir: .ship/tasks/<TASK_ID>
+  spec: .ship/tasks/<TASK_ID>/plan/spec.md
+  base_branch: <BASE_BRANCH>
+  Write reports to: .ship/tasks/<TASK_ID>/qa/
+
+  When done, end your response with:
+  [RESULT]
+  status: PASS|FAIL|SKIP|BLOCKED
+  detail: <one-line summary, e.g. 'All 5 criteria pass' or 'App won't start: port 3000 in use'>
+  artifacts: <report files written>
+  [/RESULT]")
+```
+
+**After return:** read `[RESULT]` from Agent response.
+
+| status | Action |
+|--------|--------|
+| PASS | proceed |
+| SKIP (QA decided change doesn't need testing) | proceed |
+| FAIL / BLOCKED | enter QA-fix loop (below) |
+
+### QA-fix loop
+
+```
+loop:
+  1. Set phase: dev
+  2. Dispatch ship:dev to fix (pass issue details from QA Agent return):
+     Agent(prompt="Call Skill('dev').
+       You are invoked by /ship:auto — fix mode.
+       QA found these issues. Fix them.
+       Issues: <issue details from QA Agent return>
+       task_dir: .ship/tasks/<TASK_ID>
+       spec: .ship/tasks/<TASK_ID>/plan/spec.md
+       base_branch: <BASE_BRANCH>
+       ...same [RESULT] contract...")
+  3. Set phase: qa
+  4. Re-dispatch ship:qa with --recheck
+  5. Read [RESULT]:
+     - PASS/SKIP → break, proceed
+     - FAIL/BLOCKED → next round
+```
+
+**State update:** set `phase: simplify` in `.ship/ship-auto.local.md`.
+
+Output: `[Ship] QA passed. Running simplify...`
+
+## Phase 6: Simplify
+
+Record current HEAD before simplify:
+```
+Bash("git rev-parse HEAD")
+```
+Record as `PRE_SIMPLIFY_SHA`.
 
 ```
 Agent(prompt="Call Skill('simplify').
-  Scope: only files changed in this task (git diff main...HEAD --name-only).
-  Code conduct: <CODE_CONDUCT from Phase 1 detection>.
-  User notes: <any special notes from user, if provided>.
-  Rules:
-  - Only simplify code this task touched. Do not refactor unrelated files.
-  - Preserve all behavior — tests must still pass after changes.
-  - Follow the repo's existing patterns and naming conventions.
-  - Do not add abstractions, helpers, or wrappers that didn't exist before.
-  - If nothing needs simplifying, report STATUS: SKIP.
-  Output: .ship/tasks/<task_id>/simplify.md")
+  Scope: only files changed in this task (git diff <BASE_BRANCH>...HEAD --name-only).
+  Output: .ship/tasks/<TASK_ID>/simplify.md
+
+  When done, end your response with:
+  [RESULT]
+  status: DONE
+  detail: <e.g. 'Simplified 3 functions' or 'Nothing to simplify'>
+  artifacts: .ship/tasks/<TASK_ID>/simplify.md
+  [/RESULT]")
 ```
 
-**After return:**
-- Code changed → re-verify. If tests break → revert simplify, proceed.
-- No changes or clean → Phase 9.
+**After return:** read `[RESULT]` from Agent response.
+- Nothing changed → proceed.
+- Code changed → verify simplify didn't break tests:
+  ```
+  Agent(prompt="Run the test command for this repo and report PASS or FAIL.
+    When done, end with: [RESULT] status: PASS|FAIL [/RESULT]")
+  ```
+  - PASS → proceed.
+  - FAIL → revert to `PRE_SIMPLIFY_SHA`, proceed anyway.
 
-## Phase 9: Handoff
+**State update:** set `phase: handoff` in `.ship/ship-auto.local.md`.
+
+## Phase 7: Handoff (ship:handoff)
 
 ```
-Agent(prompt="Call Skill('handoff'). Params: repo=<repo>, task_dir=.ship/tasks/<task_id>, base_branch=<base>")
+Agent(prompt="Call Skill('handoff').
+  You are invoked by /ship:auto — do NOT ask the user questions
+  task_id: <TASK_ID>
+  task_dir: .ship/tasks/<TASK_ID>
+  base_branch: <BASE_BRANCH>
+  branch: <BRANCH>
+
+  When done, end your response with:
+  [RESULT]
+  status: DONE|FAIL
+  detail: <e.g. 'PR #42 merge-ready' or 'CI failing: test_auth'>
+  artifacts: <PR URL>
+  [/RESULT]")
 ```
+
+**After return:** read `[RESULT]` from Agent response.
+
+| status | Action |
+|--------|--------|
+| DONE | Extract PR URL from `artifacts`, done |
+| FAIL | Re-dispatch handoff — it owns its own CI fix loop (max 2 rounds) |
+
+**State update (DONE):** delete `.ship/ship-auto.local.md`.
+
+Output: `[Ship] PR merge-ready: <url>`
 
 ---
 
-## Anti-Pattern: "I'll Just Do This One Thing Myself"
-
-Every phase goes through a subagent. A one-line fix, a quick test run,
-a "let me just read this file to check" — all of them. The moment you
-read code yourself, you pollute your context window. The moment you
-write code yourself, you bypass quality gates. The subagent dispatch
-can be short, but you MUST delegate it.
-
-## Retry Limits
-
-| Trigger | Fix path | Max |
-|---------|----------|-----|
-| Test / lint fail | fix → re-verify | 3 |
-| Review findings | fix → re-review | 3 |
-| Spec gap | fix → re-verify → spec re-check | 3 |
-| Wrong approach | re-implement → review → verify | 2 |
-| QA failure | fix → re-verify → re-QA | 2 |
-| Simplify breaks tests | revert, skip simplify | 1 |
-
-After limit → escalate BLOCKED.
-
-## Progress Reporting
-
-After every phase transition, output a status line:
+## Example Workflow
 
 ```
-[Ship] <phase> <status> — <detail>
-```
+── Phase 1: Bootstrap ─────────────────────────────────────
 
-Examples:
-```
-[Ship] Bootstrap complete — task "add-dark-mode" created
-[Ship] Design complete — 4 stories identified
-[Ship] Implementing story 2/4: "Create toggle component" ...
-[Ship] All 4 stories implemented. Starting code review...
-[Ship] Review found 1 issue. Fixing...
-[Ship] Review clean. Starting verification...
-[Ship] Verification passed. Starting QA...
+[Ship] Generating task ID...
+  Bash("scripts/task-id.sh 'add dark mode toggle'")
+  → TASK_ID = add-dark-mode-toggle
+
+[Ship] Creating task directory...
+  Bash("mkdir -p .ship/tasks/add-dark-mode-toggle")
+
+[Ship] Detecting base branch...
+  → BASE_BRANCH = main
+
+[Ship] On main — creating feature branch...
+  Bash("git checkout -b ship/add-dark-mode-toggle")
+  → BRANCH = ship/add-dark-mode-toggle
+
+[Ship] Writing state file...
+  phase: design
+
+[Ship] Task "add dark mode toggle" created. Starting design phase...
+
+── Phase 2: Design ────────────────────────────────────────
+
+[Ship] Dispatching /ship:design...
+  Agent(prompt="Call Skill('design'). task_id: add-dark-mode-toggle ...")
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: 3 stories identified — toggle component, CSS variables, persistence
+  artifacts: .ship/tasks/add-dark-mode-toggle/plan/spec.md, plan.md
+  [/RESULT]
+
+[Ship] State update: phase → dev
+[Ship] Design complete — 3 stories identified. Starting dev...
+
+── Phase 3: Dev ───────────────────────────────────────────
+
+[Ship] Recording HEAD SHA: abc1234
+[Ship] Dispatching /ship:dev...
+  Agent(prompt="Call Skill('dev'). task_dir: .ship/tasks/add-dark-mode-toggle ...")
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: 3/3 stories complete, tests pass
+  artifacts: src/components/ThemeToggle.tsx, src/styles/themes.css, src/hooks/useTheme.ts
+  [/RESULT]
+
+[Ship] State update: phase → review
+[Ship] Dev complete. Starting review...
+
+── Phase 4: Review ────────────────────────────────────────
+
+[Ship] Dispatching /ship:review...
+  Agent(prompt="Call Skill('review'). base_branch: main ...")
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: 2 bugs found: B1 missing null check in useTheme, B2 CSS variable fallback
+  artifacts: .ship/tasks/add-dark-mode-toggle/review.md
+  [/RESULT]
+
+[Ship] 2 bugs found. Entering review-fix loop...
+
+[Ship] State update: phase → dev (fix mode)
+[Ship] Dispatching /ship:dev to fix review bugs...
+  Agent(prompt="Call Skill('dev'). fix mode. Bugs: B1, B2 ...")
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: Fixed both bugs, tests pass
+  [/RESULT]
+
+[Ship] State update: phase → review
+[Ship] Re-dispatching /ship:review...
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: No bugs found
+  artifacts: .ship/tasks/add-dark-mode-toggle/review.md
+  [/RESULT]
+
+[Ship] State update: phase → qa
+[Ship] Review clean. Starting QA...
+
+── Phase 5: QA ────────────────────────────────────────────
+
+[Ship] Dispatching /ship:qa...
+  Agent(prompt="Call Skill('qa'). base_branch: main ...")
+
+  Agent returns:
+  [RESULT]
+  status: FAIL
+  detail: Dark mode toggle doesn't persist after hard refresh (localStorage not set)
+  artifacts: .ship/tasks/add-dark-mode-toggle/qa/browser-report.md
+  [/RESULT]
+
+[Ship] QA failed. Entering QA-fix loop...
+
+[Ship] State update: phase → dev (fix mode)
+[Ship] Dispatching /ship:dev to fix QA issues...
+  Agent(prompt="Call Skill('dev'). fix mode.
+    Issues: localStorage not set on toggle ...")
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: Added localStorage.setItem in useTheme hook
+  [/RESULT]
+
+[Ship] State update: phase → qa
+[Ship] Re-dispatching /ship:qa with --recheck...
+  Agent(prompt="Call Skill('qa'). --recheck ...")
+
+  Agent returns:
+  [RESULT]
+  status: PASS
+  detail: All 4 criteria pass, toggle persists across hard refresh
+  artifacts: .ship/tasks/add-dark-mode-toggle/qa/browser-report.md
+  [/RESULT]
+
+[Ship] State update: phase → simplify
 [Ship] QA passed. Running simplify...
-[Ship] Simplify clean. Delegating to handoff...
-[Ship] PR merge-ready: https://github.com/...
+
+── Phase 6: Simplify ──────────────────────────────────────
+
+[Ship] Recording PRE_SIMPLIFY_SHA: def5678
+[Ship] Dispatching simplify...
+  Agent(prompt="Call Skill('simplify'). Scope: git diff main...HEAD ...")
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: Simplified useTheme hook — extracted shared logic
+  artifacts: .ship/tasks/add-dark-mode-toggle/simplify.md
+  [/RESULT]
+
+[Ship] Simplify made changes. Running tests...
+  Agent(prompt="Run npm test and report PASS or FAIL...")
+  → PASS
+
+[Ship] State update: phase → handoff
+
+── Phase 7: Handoff ───────────────────────────────────────
+
+[Ship] Dispatching /ship:handoff...
+  Agent(prompt="Call Skill('handoff'). base_branch: main ...")
+
+  Agent returns:
+  [RESULT]
+  status: DONE
+  detail: PR #42 merge-ready
+  artifacts: https://github.com/user/repo/pull/42
+  [/RESULT]
+
+[Ship] Deleting state file.
+[Ship] PR merge-ready: https://github.com/user/repo/pull/42
 ```
 
-## Decision Principles
+### What This Shows
 
-When making decisions at phase transitions:
-
-1. **Complete over partial** — ship the whole thing, cover edge cases
-2. **Fix in blast radius** — broken in files this task touched → fix now
-3. **Explicit over clever** — 10-line obvious fix > 200-line abstraction
-4. **DRY** — reuse existing functionality, don't reinvent
-5. **Bias toward action** — advance > deliberate > stall
-6. **Escalate honestly** — retries exhausted → stop and tell the user
-
-## Completion
-
-### Only stop for
-- User approval gate (Phase 3)
-- Retries exhausted at any phase
-- Task scope grew beyond original spec
-
-### Never stop for
-- Mechanical failures within retry limits
-- Simplify finding nothing to change
-- QA returned SKIP verdict (must dispatch QA first, never pre-empt)
-
-### Escalation
-
-```
-[Ship] BLOCKED
-REASON: <what failed and why>
-ATTEMPTED: <what was tried, how many times>
-RECOMMENDATION: <what the user should do next>
-```
-
-## Subagent Error Recovery
-
-| Exit | Action |
-|------|--------|
-| 0 + empty artifact | Retry once, then escalate |
-| 1 | Read stderr, retry with adjusted prompt (max 2) |
-| 124 (timeout) | Break story smaller, retry |
-| 137 (OOM) | Reduce scope, retry once |
-| 429 / rate limit | Wait 30s, retry once |
-| Other | Escalate to user |
+| Principle | How the example enforces it |
+|-----------|---------------------------|
+| **State file tracks phase** | Every phase transition updates the state file |
+| **Agent return is the contract** | Orchestrator reads `[RESULT]` directly, no file parsing |
+| **Fix loops go back to dev** | Review bugs → phase set to dev → dev fixes → phase set to review |
+| **Simplify is safe** | SHA recorded before, tests run after, revert if broken |
+| **No code writes** | Orchestrator dispatches Agents for all code changes |
+| **Always ship** | Pipeline flows start to finish without stopping |
 
 <Bad>
-- Reading code yourself instead of delegating to a subagent
-- Jumping to implement before spec.md and plan.md are complete
-- Skipping simplify because "the code already looks clean"
-- Assuming subagent success from exit code 0 without checking artifact
-- Skipping a failing phase ("tests are flaky, just move on")
-- Weakening acceptance criteria to make verify pass
-- Using TODO instead of implementing
-- Rewriting spec to match what was built instead of what was asked
-- Pre-empting QA's skip logic with your own judgment
+- Writing code yourself instead of delegating
+- Hardcoding `main` instead of using BASE_BRANCH
+- Giving up on a phase instead of fixing and retrying
 - Dispatching subagents in background
 </Bad>
