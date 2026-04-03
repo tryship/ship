@@ -65,10 +65,10 @@ digraph auto {
     "Design (/ship:design)" -> "Dev (/ship:dev)";
     "Dev (/ship:dev)" -> "Review (/ship:review)";
     "Review (/ship:review)" -> "Review verdict?";
-    "Review verdict?" -> "Dev (/ship:dev)" [label="bugs, fix ≤3"];
+    "Review verdict?" -> "Dev (/ship:dev)" [label="bugs, fix loop"];
     "Review verdict?" -> "QA (/ship:qa)" [label="clean"];
     "QA (/ship:qa)" -> "QA verdict?";
-    "QA verdict?" -> "Dev (/ship:dev)" [label="FAIL, fix ≤2"];
+    "QA verdict?" -> "Dev (/ship:dev)" [label="FAIL, fix loop"];
     "QA verdict?" -> "Simplify" [label="PASS"];
     "Simplify" -> "Simplify broke tests?";
     "Simplify broke tests?" -> "Handoff (/ship:handoff)" [label="revert"];
@@ -265,8 +265,8 @@ Agent(prompt="Call Skill('review').
 
 ```
 loop:
-  1. Set phase: dev (so resume goes back to dev if session breaks)
-  2. Dispatch ship:dev to fix the bugs (pass the bug details you already have from the review Agent return):
+  1. Set phase: dev
+  2. Dispatch ship:dev to fix the bugs (pass bug details from review Agent return):
      Agent(prompt="Call Skill('dev').
        You are invoked by /ship:auto — fix mode.
        These bugs were found by code review. Fix them.
@@ -275,9 +275,9 @@ loop:
        spec: .ship/tasks/<TASK_ID>/plan/spec.md
        base_branch: <BASE_BRANCH>
        ...same [RESULT] contract...")
-  4. Set phase: review
-  5. Re-dispatch ship:review (same prompt as above)
-  6. Parse [RESULT]:
+  3. Set phase: review
+  4. Re-dispatch ship:review (same prompt as above)
+  5. Read [RESULT]:
      - No bugs found → break, proceed
      - Bugs found → next round
 ```
@@ -316,8 +316,8 @@ Agent(prompt="Call Skill('qa').
 
 ```
 loop:
-  1. Set phase: dev (so resume goes back to dev if session breaks)
-  2. Dispatch ship:dev to fix (pass the issue details you already have from the QA Agent return):
+  1. Set phase: dev
+  2. Dispatch ship:dev to fix (pass issue details from QA Agent return):
      Agent(prompt="Call Skill('dev').
        You are invoked by /ship:auto — fix mode.
        QA found these issues. Fix them.
@@ -326,9 +326,9 @@ loop:
        spec: .ship/tasks/<TASK_ID>/plan/spec.md
        base_branch: <BASE_BRANCH>
        ...same [RESULT] contract...")
-  4. Set phase: qa
-  5. Re-dispatch ship:qa with --recheck
-  6. Parse [RESULT]:
+  3. Set phase: qa
+  4. Re-dispatch ship:qa with --recheck
+  5. Read [RESULT]:
      - PASS/SKIP → break, proceed
      - FAIL/BLOCKED → next round
 ```
@@ -468,7 +468,7 @@ Output: `[Ship] PR merge-ready: <url>`
   artifacts: .ship/tasks/add-dark-mode-toggle/review.md
   [/RESULT]
 
-[Ship] 2 bugs found. Entering review-fix loop (round 1/3)...
+[Ship] 2 bugs found. Entering review-fix loop...
 
 [Ship] State update: phase → dev (fix mode)
 [Ship] Dispatching /ship:dev to fix review bugs...
@@ -505,7 +505,7 @@ Output: `[Ship] PR merge-ready: <url>`
   artifacts: .ship/tasks/add-dark-mode-toggle/qa/browser-report.md
   [/RESULT]
 
-[Ship] QA failed. Entering QA-fix loop (round 1/2)...
+[Ship] QA failed. Entering QA-fix loop...
 
 [Ship] State update: phase → dev (fix mode)
 [Ship] Dispatching /ship:dev to fix QA issues...
