@@ -176,24 +176,17 @@ Output: `[Ship] Resuming task "<task_id>" — phase: <phase>`
 ```
 Agent(prompt="Call Skill('design').
   You are invoked by /ship:auto — do NOT ask the user questions. Treat
-  any escalated items as BLOCKED and return.
+  any escalated items as blocked and say what is missing.
   Task description: <description from state file body>
   task_id: <TASK_ID>
   Artifacts go to: .ship/tasks/<TASK_ID>/plan/
   Current branch: <BRANCH>
-  HEAD SHA: <current HEAD>
-
-  When done, end your response with:
-  [RESULT]
-  status: DONE|BLOCKED|NEEDS_CONTEXT
-  detail: <one-line summary>
-  artifacts: <files written>
-  [/RESULT]")
+  HEAD SHA: <current HEAD>")
 ```
 
-**After return:** read `[RESULT]` from Agent response.
-- `status: DONE` → proceed
-- `status: BLOCKED` or `NEEDS_CONTEXT` → re-dispatch with more context (max 2 rounds)
+**After return:** read the Agent response directly.
+- Response clearly indicates design is complete → proceed
+- Response indicates blocked or needs context → re-dispatch with more context (max 2 rounds)
 
 **State update:** set `phase: dev` in `.ship/ship-auto.local.md`.
 
@@ -206,28 +199,21 @@ Record pre-dispatch HEAD SHA.
 ```
 Agent(prompt="Call Skill('dev').
   You are invoked by /ship:auto — do NOT ask the user questions.
-  If you cannot find TEST_CMD or need context, return NEEDS_CONTEXT.
+  If you cannot find TEST_CMD or need context, say clearly what context is missing.
   task_dir: .ship/tasks/<TASK_ID>
   spec: .ship/tasks/<TASK_ID>/plan/spec.md
   plan: .ship/tasks/<TASK_ID>/plan/plan.md
-  base_branch: <BASE_BRANCH>
-
-  When done, end your response with:
-  [RESULT]
-  status: DONE|DONE_WITH_CONCERNS|BLOCKED|NEEDS_CONTEXT
-  detail: <one-line summary, e.g. '4/4 stories complete, tests pass'>
-  artifacts: <files written>
-  [/RESULT]")
+  base_branch: <BASE_BRANCH>")
 ```
 
-**After return:** read `[RESULT]` from Agent response.
+**After return:** read the Agent response directly.
 
-| status | Action |
-|--------|--------|
-| DONE | proceed |
-| DONE_WITH_CONCERNS | Log concerns from `detail`, proceed |
-| BLOCKED | Read `detail`, re-dispatch with fix instructions (max 2) |
-| NEEDS_CONTEXT | Read `detail` for what's missing, investigate, re-dispatch (max 2) |
+| Response shape | Action |
+|---------------|--------|
+| Clearly indicates implementation is complete | proceed |
+| Clearly indicates implementation is complete with concerns | Log concerns from the response, proceed |
+| Clearly indicates blocked | Re-dispatch with fix instructions (max 2) |
+| Clearly indicates needs context | Investigate and re-dispatch (max 2) |
 
 **State update:** set `phase: review` in `.ship/ship-auto.local.md`.
 
@@ -266,8 +252,7 @@ loop:
        Bugs: <bug details from review Agent return>
        task_dir: .ship/tasks/<TASK_ID>
        spec: .ship/tasks/<TASK_ID>/plan/spec.md
-       base_branch: <BASE_BRANCH>
-       ...same [RESULT] contract...")
+       base_branch: <BASE_BRANCH>...")
   3. Set phase: review
   4. Re-dispatch ship:review (same prompt as above)
   5. Read the review response directly:
@@ -287,23 +272,16 @@ Agent(prompt="Call Skill('qa').
   task_dir: .ship/tasks/<TASK_ID>
   spec: .ship/tasks/<TASK_ID>/plan/spec.md
   base_branch: <BASE_BRANCH>
-  Write reports to: .ship/tasks/<TASK_ID>/qa/
-
-  When done, end your response with:
-  [RESULT]
-  status: PASS|FAIL|SKIP|BLOCKED
-  detail: <one-line summary, e.g. 'All 5 criteria pass' or 'App won't start: port 3000 in use'>
-  artifacts: <report files written>
-  [/RESULT]")
+  Write reports to: .ship/tasks/<TASK_ID>/qa/")
 ```
 
-**After return:** read `[RESULT]` from Agent response.
+**After return:** read the Agent response directly.
 
-| status | Action |
-|--------|--------|
-| PASS | proceed |
-| SKIP (QA decided change doesn't need testing) | proceed |
-| FAIL / BLOCKED | enter QA-fix loop (below) |
+| Response shape | Action |
+|---------------|--------|
+| Clearly indicates PASS | proceed |
+| Clearly indicates SKIP | proceed |
+| Clearly indicates FAIL or BLOCKED | enter QA-fix loop (below) |
 
 ### QA-fix loop
 
@@ -317,11 +295,10 @@ loop:
        Issues: <issue details from QA Agent return>
        task_dir: .ship/tasks/<TASK_ID>
        spec: .ship/tasks/<TASK_ID>/plan/spec.md
-       base_branch: <BASE_BRANCH>
-       ...same [RESULT] contract...")
+       base_branch: <BASE_BRANCH>...")
   3. Set phase: qa
   4. Re-dispatch ship:qa with --recheck
-  5. Read [RESULT]:
+  5. Read the QA response directly:
      - PASS/SKIP → break, proceed
      - FAIL/BLOCKED → next round
 ```
@@ -341,22 +318,14 @@ Record as `PRE_SIMPLIFY_SHA`.
 ```
 Agent(prompt="Call Skill('simplify').
   Scope: only files changed in this task (git diff <BASE_BRANCH>...HEAD --name-only).
-  Output: .ship/tasks/<TASK_ID>/simplify.md
-
-  When done, end your response with:
-  [RESULT]
-  status: DONE
-  detail: <e.g. 'Simplified 3 functions' or 'Nothing to simplify'>
-  artifacts: .ship/tasks/<TASK_ID>/simplify.md
-  [/RESULT]")
+  Output: .ship/tasks/<TASK_ID>/simplify.md")
 ```
 
-**After return:** read `[RESULT]` from Agent response.
+**After return:** read the Agent response directly.
 - Nothing changed → proceed.
 - Code changed → verify simplify didn't break tests:
   ```
-  Agent(prompt="Run the test command for this repo and report PASS or FAIL.
-    When done, end with: [RESULT] status: PASS|FAIL [/RESULT]")
+  Agent(prompt="Run the test command for this repo and report whether tests pass or fail.")
   ```
   - PASS → proceed.
   - FAIL → revert to `PRE_SIMPLIFY_SHA`, proceed anyway.
@@ -371,22 +340,15 @@ Agent(prompt="Call Skill('handoff').
   task_id: <TASK_ID>
   task_dir: .ship/tasks/<TASK_ID>
   base_branch: <BASE_BRANCH>
-  branch: <BRANCH>
-
-  When done, end your response with:
-  [RESULT]
-  status: DONE|FAIL
-  detail: <e.g. 'PR #42 merge-ready' or 'CI failing: test_auth'>
-  artifacts: <PR URL>
-  [/RESULT]")
+  branch: <BRANCH>")
 ```
 
-**After return:** read `[RESULT]` from Agent response.
+**After return:** read the Agent response directly.
 
-| status | Action |
-|--------|--------|
-| DONE | Extract PR URL from `artifacts`, done |
-| FAIL | Re-dispatch handoff — it owns its own CI fix loop (max 2 rounds) |
+| Response shape | Action |
+|---------------|--------|
+| Clearly indicates merge-ready and includes PR URL | done |
+| Clearly indicates failure or not ready | Re-dispatch handoff — it owns its own CI fix loop (max 2 rounds) |
 
 **State update (DONE):** delete `.ship/ship-auto.local.md`.
 
@@ -424,11 +386,9 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('design'). task_id: add-dark-mode-toggle ...")
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: 3 stories identified — toggle component, CSS variables, persistence
-  artifacts: .ship/tasks/add-dark-mode-toggle/plan/spec.md, plan.md
-  [/RESULT]
+  Design complete.
+  3 stories identified — toggle component, CSS variables, persistence.
+  Artifacts written to .ship/tasks/add-dark-mode-toggle/plan/spec.md and plan.md.
 
 [Ship] State update: phase → dev
 [Ship] Design complete — 3 stories identified. Starting dev...
@@ -440,11 +400,9 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('dev'). task_dir: .ship/tasks/add-dark-mode-toggle ...")
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: 3/3 stories complete, tests pass
-  artifacts: src/components/ThemeToggle.tsx, src/styles/themes.css, src/hooks/useTheme.ts
-  [/RESULT]
+  Implementation complete.
+  3/3 stories complete, tests pass.
+  Files changed: src/components/ThemeToggle.tsx, src/styles/themes.css, src/hooks/useTheme.ts.
 
 [Ship] State update: phase → review
 [Ship] Dev complete. Starting review...
@@ -467,10 +425,7 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('dev'). fix mode. Bugs: P1, P2 ...")
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: Fixed both bugs, tests pass
-  [/RESULT]
+  Fixed both bugs. Tests pass.
 
 [Ship] State update: phase → review
 [Ship] Re-dispatching /ship:review...
@@ -488,11 +443,8 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('qa'). base_branch: main ...")
 
   Agent returns:
-  [RESULT]
-  status: FAIL
-  detail: Dark mode toggle doesn't persist after hard refresh (localStorage not set)
-  artifacts: .ship/tasks/add-dark-mode-toggle/qa/browser-report.md
-  [/RESULT]
+  FAIL — dark mode toggle doesn't persist after hard refresh (localStorage not set).
+  Report written to .ship/tasks/add-dark-mode-toggle/qa/browser-report.md.
 
 [Ship] QA failed. Entering QA-fix loop...
 
@@ -502,21 +454,15 @@ Output: `[Ship] PR merge-ready: <url>`
     Issues: localStorage not set on toggle ...")
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: Added localStorage.setItem in useTheme hook
-  [/RESULT]
+  Added localStorage.setItem in useTheme hook.
 
 [Ship] State update: phase → qa
 [Ship] Re-dispatching /ship:qa with --recheck...
   Agent(prompt="Call Skill('qa'). --recheck ...")
 
   Agent returns:
-  [RESULT]
-  status: PASS
-  detail: All 4 criteria pass, toggle persists across hard refresh
-  artifacts: .ship/tasks/add-dark-mode-toggle/qa/browser-report.md
-  [/RESULT]
+  PASS — all 4 criteria pass, toggle persists across hard refresh.
+  Report written to .ship/tasks/add-dark-mode-toggle/qa/browser-report.md.
 
 [Ship] State update: phase → simplify
 [Ship] QA passed. Running simplify...
@@ -528,11 +474,8 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('simplify'). Scope: git diff main...HEAD ...")
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: Simplified useTheme hook — extracted shared logic
-  artifacts: .ship/tasks/add-dark-mode-toggle/simplify.md
-  [/RESULT]
+  Simplified useTheme hook — extracted shared logic.
+  Notes written to .ship/tasks/add-dark-mode-toggle/simplify.md.
 
 [Ship] Simplify made changes. Running tests...
   Agent(prompt="Run npm test and report PASS or FAIL...")
@@ -546,11 +489,8 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('handoff'). base_branch: main ...")
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: PR #42 merge-ready
-  artifacts: https://github.com/user/repo/pull/42
-  [/RESULT]
+  PR #42 is merge-ready:
+  https://github.com/user/repo/pull/42
 
 [Ship] Deleting state file.
 [Ship] PR merge-ready: https://github.com/user/repo/pull/42
@@ -561,7 +501,7 @@ Output: `[Ship] PR merge-ready: <url>`
 | Principle | How the example enforces it |
 |-----------|---------------------------|
 | **State file tracks phase** | Every phase transition updates the state file |
-| **Agent return is the contract** | Orchestrator reads the subagent response directly; review does not require a `[RESULT]` block |
+| **Agent return is the contract** | Orchestrator reads the subagent response directly instead of parsing a result trailer |
 | **Fix loops go back to dev** | Review bugs → phase set to dev → dev fixes → phase set to review |
 | **Simplify is safe** | SHA recorded before, tests run after, revert if broken |
 | **No code writes** | Orchestrator dispatches Agents for all code changes |
