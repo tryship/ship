@@ -198,6 +198,8 @@ Output: `[Ship] Resuming task "<task_id>" — phase: <phase>`
 
 ```
 Agent(prompt="Call Skill('design').
+  Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+  /ship:auto already handled preflight, auth, and repo context for this pipeline.
   This is the design phase only. Do not implement code in this phase.
   Read the existing code and produce the planning artifacts needed for implementation.
   Use the request below as planning context for `spec.md` and `plan.md` only.
@@ -233,6 +235,8 @@ Record pre-dispatch HEAD SHA.
 
 ```
 Agent(prompt="Call Skill('dev').
+  Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+  /ship:auto already handled preflight, auth, and repo context for this pipeline.
   This is the implementation phase only.
   Use the inputs below as implementation context.
   Implement against the provided spec and plan.
@@ -270,6 +274,8 @@ Output: `[Ship] Dev complete. Starting review...`
 
 ```
 Agent(prompt="Call Skill('review').
+  Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+  /ship:auto already handled preflight, auth, and repo context for this pipeline.
   This is the review phase only.
   Review the active change scope against the provided spec and write actionable findings.
   Do not implement fixes in this phase.
@@ -306,6 +312,8 @@ loop:
      `.ship/tasks/<TASK_ID>/review.md` and use its latest findings as the fix input
   3. Dispatch ship:dev to fix the bugs (pass bug details from review Agent return):
      Agent(prompt="Call Skill('dev').
+       Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+       /ship:auto already handled preflight, auth, and repo context for this pipeline.
        This is the implementation fix phase only.
        Apply only the review findings below to the existing implementation.
        Keep the fix scope targeted to those findings and rerun the most relevant verification
@@ -338,6 +346,8 @@ Output: `[Ship] Review clean. Starting QA...`
 
 ```
 Agent(prompt="Call Skill('qa').
+  Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+  /ship:auto already handled preflight, auth, and repo context for this pipeline.
   This is the QA phase only.
   Test the existing implementation against the provided spec and current changes.
   Produce evidence-backed reports in the QA output directory and summarize the verdict for Auto.
@@ -373,6 +383,8 @@ loop:
      failing report in `.ship/tasks/<TASK_ID>/qa/` and use it as the fix input
   3. Dispatch ship:dev to fix (pass issue details from QA Agent return):
      Agent(prompt="Call Skill('dev').
+       Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+       /ship:auto already handled preflight, auth, and repo context for this pipeline.
        This is the implementation fix phase only.
        Apply only the QA issues below to the existing implementation.
        Keep the fix scope targeted to those issues and rerun the most relevant verification
@@ -411,6 +423,8 @@ Record as `PRE_SIMPLIFY_SHA`.
 
 ```
 Agent(prompt="Call Skill('simplify').
+  Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+  /ship:auto already handled preflight, auth, and repo context for this pipeline.
   This is the simplify phase only.
   Do behavior-preserving cleanup within the task scope below.
   Prefer simplifications that reduce duplication, clarify structure, or remove incidental
@@ -442,6 +456,8 @@ Agent(prompt="Call Skill('simplify').
 
 ```
 Agent(prompt="Call Skill('handoff').
+  Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+  /ship:auto already handled preflight, auth, and repo context for this pipeline.
   This is the handoff phase only.
   Ship the current implementation on the provided branch.
   Verify what is needed, commit the relevant changes, push, create or update the PR,
