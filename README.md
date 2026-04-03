@@ -53,8 +53,8 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 
 | Skill | Description |
 |-------|-------------|
-| `/ship:auto` | Full pipeline orchestrator: plan → dev → review → verify → QA → simplify → handoff |
-| `/ship:design` | Adversarial pre-coding planning with Codex challenger (2-round convergence) |
+| `/ship:auto` | Full pipeline orchestrator: design → dev → review → verify → QA → simplify → handoff |
+| `/ship:design` | Parallel investigation by Claude + Codex, adversarial spec diff with debate, executable TDD plan validated by drill |
 | `/ship:dev` | Execute implementation stories from a plan — Codex implements, Claude reviews |
 | `/ship:review` | Find every bug in the diff, then diagnose the structural deficiency that breeds them |
 | `/ship:qa` | Independent QA: tests code changes against the spec via the running application |

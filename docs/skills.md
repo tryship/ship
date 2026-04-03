@@ -5,7 +5,7 @@ Detailed guides for every Ship skill — philosophy, workflow, and examples.
 | Skill | Role | What it does |
 |-------|------|--------------|
 | [`/ship:auto`](#auto) | **Pipeline Orchestrator** | The full pipeline. One command from task description to merge-ready PR. Delegates every phase to fresh subagents with quality gates at every transition. You approve the plan once; it handles the rest. |
-| [`/ship:design`](#design) | **Adversarial Planner** | Reads your codebase, writes a plan, then hands it to an independent Codex challenger. Two rounds of adversarial review. A blind execution drill. You see the plan only after it survives falsification. |
+| [`/ship:design`](#design) | **Adversarial Designer** | You and Codex independently investigate the codebase and produce specs in parallel. Divergences resolved by code evidence and debate. Merged spec feeds an executable TDD plan validated by Codex drill. |
 | [`/ship:dev`](#dev) | **Implementation Engine** | Executes stories from a plan. Codex writes code, Claude reviews — different models catching each other's blind spots. Stories run sequentially; review must pass before the next one starts. |
 | [`/ship:review`](#review) | **Staff Engineer** | Find every bug in the diff, then diagnose the structural deficiency that breeds them. Bugs are symptoms — the structural crack is the disease. |
 | [`/ship:qa`](#qa) | **Independent QA** | Starts your app, tests every acceptance criterion against the running product. Independence contract: cannot read the review or plan. Only direct observation counts. |
@@ -36,7 +36,7 @@ The QA evaluator is contractually forbidden from reading the review or the plan.
 ### Nine phases
 
 ```
-Plan → Approve → Dev → Review → Verify → QA → Simplify → Handoff
+Design → Approve → Dev → Review → Verify → QA → Simplify → Handoff
 ```
 
 1. **Bootstrap** — init task directory, detect tooling
@@ -118,62 +118,59 @@ This is where **adversarial rigor** meets planning.
 
 Most AI planning is a monologue. The model reads your request, skims the codebase, and writes a plan that sounds reasonable. The problem: "sounds reasonable" is not "survives contact with reality." Plans fail when they reference files that don't exist, assume APIs that have different signatures, or miss existing defenses that already handle the case.
 
-`plan` fixes this with a simple rule: **no investigation, no plan.**
-
 ### How it works
 
-The planner doesn't skim. It traces full call paths from entry points, reads the actual files, records file:line evidence for every claim. Every statement in the plan must be grounded in code you can point to.
+Two phases produce two artifacts:
 
-Then the plan faces a challenger.
+**Phase 1: Design** — Claude and Codex independently investigate the codebase using identical methodology and produce separate specs. Codex is dispatched first (async MCP), then Claude investigates in parallel. Neither sees the other's spec. Divergences are resolved by code evidence, and when evidence alone isn't conclusive, by debate (max 2 rounds via MCP thread, both sides cite file:line).
+
+The merged spec follows brainstorming style — flexible sections scaled to complexity. A small bugfix gets a few paragraphs. An architectural change gets full sections.
+
+**Phase 2: Write Plan** — The validated spec feeds an executable plan in writing-plans format: bite-sized TDD tasks with checkbox steps, complete code blocks, exact commands, no placeholders. Codex validates the plan via execution drill — checking format compliance, file path existence, and spec coverage.
 
 ### The adversarial loop
 
-After the planner writes Plan A, Codex independently produces Plan B — without ever seeing Plan A. This is not a review. It is an independent investigation of the same problem by a different model.
+This is not a review. It is two independent investigations of the same problem by different models.
 
-Then the diff:
-
-- **Both plans agree** → CONFIRMED. High confidence.
-- **Plans diverge** → resolution by code evidence, not by reasoning. Read the file. Check the type signature. Grep for the constant. One plan is right and one is wrong, and the code tells you which.
+- **Specs diverge** → resolution by code evidence first. If still unresolved, debate with Codex on the MCP thread (max 2 rounds, both sides cite file:line). Dispositions: patched, proven-false, conceded, or escalated to user.
+- **Debate exhausted** → escalated items go to the user in standalone mode, or block in auto mode.
 
 ### The execution drill
 
-After convergence, one final gate: Codex walks the plan step by step as if it were the implementer. Every step where it would have to guess — unclear file path, ambiguous function name, missing context — gets flagged.
+The final gate: Codex reads the plan and checks every task for implementability. Format compliance (TDD order, checkboxes, no placeholders), file path verification (Create paths don't exist, Modify paths do), and spec coverage (every acceptance criterion has a task).
 
-The planner addresses each flag with evidence or revises the step. Plans that survive this drill are implementable. Plans that don't get revised until they are.
+Tasks flagged UNCLEAR get revised and re-drilled once. Plans that survive are implementable.
 
 ### Example
 
 ```
-You:   Plan out adding WebSocket support for real-time notifications
+You:   Design adding WebSocket support for real-time notifications
 
-Claude: [Plan] Phase 2: Investigating codebase...
+Claude: [Design] Dispatching Codex investigation...
+        [Design] Investigating codebase...
         Read src/server.ts — Express app, no existing WS setup.
         Read src/routes/notifications.ts — polling endpoint, 5s interval.
         Read src/services/notificationService.ts — pushes to Redis pub/sub.
         Read package.json — no ws/socket.io dependency.
 
-        [Plan] Phase 3: Writing Plan A...
-        Spec: Replace polling with WebSocket push.
-        3 stories with file:line references for every touchpoint.
+        [Design] Writing spec.md...
 
-        [Plan] Phase 4: Codex producing Plan B independently...
-        [Plan] Phase 5: Comparing plans...
+        [Design] Reading Codex spec...
+        [Design] Diffing specs...
 
-        CONFIRMED: Both plans use ws library (not socket.io).
-        CONFIRMED: Both plans hook into existing Redis pub/sub.
-        DIVERGENCE: Plan A modifies server.ts directly.
-                    Plan B creates separate ws-server.ts.
-                    → Read server.ts:14 — already has upgrade handler
-                      for health checks. Plan B is right: separate file
-                      avoids conflict.
-                    → Plan A revised.
+        DIVERGENCE: Claude spec modifies server.ts directly.
+                    Codex spec creates separate ws-server.ts.
+                    → Code evidence: server.ts:14 already has upgrade
+                      handler for health checks. Codex is right.
+                    → Disposition: conceded. spec.md updated.
 
-        [Plan] Phase 6: Execution drill...
-        Codex flagged: "Step 2 says 'update the notification type' but
-        doesn't specify which file defines NotificationType."
-        → Added: src/types/notification.ts:8
+        [Design] Writing plan.md (3 TDD tasks)...
+        [Design] Execution drill...
+        Codex flagged: "Task 2 Step 1 test references NotificationType
+        but doesn't specify which file." → UNCLEAR
+        → Revised: added src/types/notification.ts:8. Re-drilled: CLEAR.
 
-        Plan complete. 3 stories, all implementable.
+        Design complete. spec.md + plan.md ready.
 ```
 
 ---
