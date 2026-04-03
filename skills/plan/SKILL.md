@@ -1,7 +1,7 @@
 ---
 name: plan
-version: 0.3.0
-description: "Adversarial pre-coding planning: you investigate the codebase, write a plan, then Codex independently produces its own plan. Differences are resolved by code evidence, and a blind execution drill verifies implementability."
+version: 1.0.0
+description: "Adversarial pre-coding planning: you and Codex independently investigate the codebase and produce specs, then diff. Merged spec feeds an executable plan validated by Codex drill."
 allowed-tools:
   - Bash
   - Read
@@ -9,6 +9,7 @@ allowed-tools:
   - Edit
   - Glob
   - Grep
+  - Agent
   - AskUserQuestion
   - mcp__codex__codex
   - mcp__codex__codex-reply
@@ -30,28 +31,8 @@ If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
 You ARE the planner. You read code, investigate, write spec and plan.
 You must read the code yourself — delegating investigation loses the
-context needed to write a good plan. Codex produces an independent plan,
-not a critique of yours.
-
-## Principal Contradiction
-
-**The plan's model of the code vs the code's actual reality.**
-
-Plans fail not because of bad reasoning, but because of unverified
-assumptions about what the code does. The adversary is not another AI —
-it is reality itself. Every mechanism in this skill exists to close the
-gap between what the planner believes and what the code actually does.
-
-## Core Principle
-
-```
-NO INVESTIGATION, NO PLAN.
-PRACTICE IS THE CRITERION OF TRUTH.
-```
-
-Every claim in spec.md and plan.md must be backed by code evidence you
-personally verified. Plans are validated against code reality and
-execution rehearsal, not by debate or persuasion.
+context needed to write a good plan. Codex investigates independently
+and produces its own spec for adversarial comparison.
 
 ## Process Flow
 
@@ -61,41 +42,50 @@ digraph plan {
 
     "Start" [shape=doublecircle];
     "Resolve task_id, create dir" [shape=box];
-    "Read code, trace paths, build verified model" [shape=box];
+    "Dispatch Codex investigation (MCP, async)" [shape=box];
+    "Claude investigates + writes spec" [shape=box];
+    "Read Codex spec" [shape=box];
     "Task too vague?" [shape=diamond];
     "Ask user for clarification" [shape=box];
-    "Write spec.md + plan.md (Plan A)" [shape=box];
-    "Codex produces Plan B independently (MCP)" [shape=box];
-    "Compare Plan A vs Plan B" [shape=box];
+    "Diff Claude spec vs Codex spec" [shape=box];
     "Critical gap found?" [shape=diamond];
     "Resolve divergences by code evidence" [shape=box];
+    "Debate with Codex (max 2 rounds)" [shape=box];
     "Escalated items?" [shape=diamond];
     "Ask user to resolve" [shape=box];
-    "Codex walks plan as implementer (MCP)" [shape=box];
+    "Write spec.md (merged)" [shape=box];
+    "Write plan.md (executable tasks)" [shape=box];
+    "Self-review plan against spec" [shape=box];
+    "Codex execution drill (MCP)" [shape=box];
     "All steps CLEAR?" [shape=diamond];
     "Revise plan for unclear steps" [shape=box];
     "STOP: BLOCKED — unresolvable without user" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
     "Ready for execution" [shape=doublecircle];
 
     "Start" -> "Resolve task_id, create dir";
-    "Resolve task_id, create dir" -> "Read code, trace paths, build verified model";
-    "Read code, trace paths, build verified model" -> "Task too vague?";
+    "Resolve task_id, create dir" -> "Dispatch Codex investigation (MCP, async)";
+    "Dispatch Codex investigation (MCP, async)" -> "Claude investigates + writes spec";
+    "Claude investigates + writes spec" -> "Task too vague?";
     "Task too vague?" -> "Ask user for clarification" [label="yes"];
-    "Ask user for clarification" -> "Read code, trace paths, build verified model";
-    "Task too vague?" -> "Write spec.md + plan.md (Plan A)" [label="no"];
-    "Write spec.md + plan.md (Plan A)" -> "Codex produces Plan B independently (MCP)";
-    "Codex produces Plan B independently (MCP)" -> "Compare Plan A vs Plan B";
-    "Compare Plan A vs Plan B" -> "Critical gap found?";
-    "Critical gap found?" -> "Read code, trace paths, build verified model" [label="yes, re-investigate"];
+    "Ask user for clarification" -> "Claude investigates + writes spec";
+    "Task too vague?" -> "Read Codex spec" [label="no"];
+    "Read Codex spec" -> "Diff Claude spec vs Codex spec";
+    "Diff Claude spec vs Codex spec" -> "Critical gap found?";
+    "Critical gap found?" -> "Claude investigates + writes spec" [label="yes, re-investigate"];
     "Critical gap found?" -> "Resolve divergences by code evidence" [label="no"];
-    "Resolve divergences by code evidence" -> "Escalated items?";
+    "Resolve divergences by code evidence" -> "Debate with Codex (max 2 rounds)" [label="disagree"];
+    "Resolve divergences by code evidence" -> "Escalated items?" [label="resolved"];
+    "Debate with Codex (max 2 rounds)" -> "Escalated items?";
     "Escalated items?" -> "Ask user to resolve" [label="yes"];
-    "Ask user to resolve" -> "Codex walks plan as implementer (MCP)";
-    "Escalated items?" -> "Codex walks plan as implementer (MCP)" [label="no"];
-    "Codex walks plan as implementer (MCP)" -> "All steps CLEAR?";
+    "Ask user to resolve" -> "Write spec.md (merged)";
+    "Escalated items?" -> "Write spec.md (merged)" [label="no"];
+    "Write spec.md (merged)" -> "Write plan.md (executable tasks)";
+    "Write plan.md (executable tasks)" -> "Self-review plan against spec";
+    "Self-review plan against spec" -> "Codex execution drill (MCP)";
+    "Codex execution drill (MCP)" -> "All steps CLEAR?";
     "All steps CLEAR?" -> "Ready for execution" [label="yes"];
     "All steps CLEAR?" -> "Revise plan for unclear steps" [label="unclear, max 1 loop"];
-    "Revise plan for unclear steps" -> "Codex walks plan as implementer (MCP)";
+    "Revise plan for unclear steps" -> "Codex execution drill (MCP)";
     "All steps CLEAR?" -> "STOP: BLOCKED — unresolvable without user" [label="blocked"];
 }
 ```
@@ -104,31 +94,35 @@ digraph plan {
 
 | Phase | Who | Why |
 |-------|-----|-----|
-| Investigation (read code, trace paths) | **You** | You need the context to write a good plan |
-| Write spec.md + plan.md (Plan A) | **You** | Investigation context must not be lost |
-| Independent Plan B | **Codex** (via MCP) | Independence requires separation |
+| Investigation (read code, trace paths) | **You + Codex (parallel)** | Independent investigation catches different blind spots |
+| Write spec (Claude's version) | **You** | Investigation context must not be lost |
+| Write spec (Codex's version) | **Codex** (via MCP) | Independence requires separation |
 | Diff & verify divergences | **You** | You have the context + code access to judge |
-| Execution Drill | **Codex** (via MCP) | Fresh eyes test implementability |
+| Write plan.md | **You** | Spec context must flow into plan |
+| Execution Drill | **Codex** (via MCP, new session) | Fresh eyes test implementability |
 
 ## Hard Rules
 
 1. You read all code you reference. No citing files you haven't opened.
-2. Codex never sees Plan A when producing Plan B. Independence is sacred.
-3. Divergences are resolved by code evidence, not argument.
-4. Disk artifacts are truth. Prior conversation is reference only.
-5. The execution drill must pass before any plan is marked ready.
+2. Codex never sees your spec when producing its own. Independence is sacred.
+3. Codex receives the same investigation instructions you follow.
+4. Divergences are resolved by code evidence. When evidence alone isn't conclusive, debate with Codex (max 2 rounds, both sides cite file:line).
+5. Disk artifacts are truth. Prior conversation is reference only.
+6. The execution drill must pass before any plan is marked ready.
+7. spec.md has no rigid template — sections scale to task complexity.
+8. plan.md has no placeholders — every step has complete code and commands.
 
 ## Quality Gates
 
 | Gate | Condition | Fail action |
 |------|-----------|-------------|
-| Investigation → Write | All claims trace to file:line you read | Re-investigate |
-| Write → Plan B | spec.md has Background + Investigation sections, plan.md has concrete steps | Revise |
-| Diff → Drill | Zero `escalated` items (or user resolved them) | Ask user |
+| Investigation → Spec | All claims trace to file:line you read | Re-investigate |
+| Spec → Diff | spec.md has flexible sections scaled to complexity, self-reviewed | Revise |
+| Diff → Plan | Zero `escalated` items (resolved by evidence or debate, or user resolved them) | Ask user |
+| Plan → Drill | plan.md has TDD tasks, checkbox steps, complete code, no placeholders | Revise |
 | Drill → Ready | Zero BLOCKED steps, zero UNCLEAR steps | Revise plan (max 1 loop) |
 
 No artifact passes to the next phase without meeting its gate.
-Defects are caught at source, never passed downstream.
 
 ---
 
@@ -158,31 +152,59 @@ Check if `spec.md` already exists with content:
 
 If `SPEC_EXISTS`:
 - Read `spec.md`. This was written by an upstream skill (e.g. refactor).
+- Check if spec records a HEAD SHA. If it does and it differs from
+  current HEAD, treat spec as stale — proceed as `NO_SPEC`.
 - **Do not overwrite it.** Use it as your investigation input.
 - Your job narrows: investigate to validate the spec's claims, then
   produce only `plan.md`. You may append an `## Investigation` section
   to the existing spec if it lacks one, but preserve all existing sections.
-- Skip to Phase 2 with the spec as your starting context.
+- Skip Codex parallel investigation — spec already exists and was
+  validated upstream. No `codex-spec.md` or `diff-report.md` produced.
+- Skip to Phase 5 (Write Plan) with the spec as your starting context.
+- The execution drill (Phase 6) still runs — plan.md always gets validated.
 
-If `NO_SPEC`: proceed normally — you produce both `spec.md` and `plan.md`.
+If `NO_SPEC`: proceed normally — Phase 2 investigates, Phase 3 writes
+spec.md, Phase 4 resolves divergences, then Phase 5 writes plan.md.
 
-## Phase 2: Investigate
+## Phase 2: Investigate (Parallel)
 
 **This is the most important phase. Do not rush it.**
 
-Read the codebase systematically before writing any plan. Your goal is
-to build a verified mental model of the relevant code, so that every
-claim in your plan traces back to something you actually read.
+### Step A: Dispatch Codex
 
-### For bug fixes — trace the full data/call path:
+Kick off Codex MCP **before** you start investigating. Codex works
+in parallel while you read code.
+
+Read `independent-investigator.md` for the MCP call parameters and
+prompt template. Fill in the task description, task_id, and repo root.
+Save the returned `threadId` as `INVESTIGATION_THREAD_ID` — needed
+for debate in Phase 4.
+
+#### When Codex is unavailable
+
+If MCP call fails, self-produce the second spec:
+1. Run a second-pass review of your spec using only: placeholder scan,
+   contradiction scan, coverage scan, ambiguity scan
+2. Search for code paths, callers, or consumers you did not trace
+3. Write `codex-spec.md` with any changed conclusions or additions
+4. Add a warning: `WARNING: Second spec was self-generated, not independent`
+
+### Step B: Your investigation
+
+Read the codebase systematically. Before writing the spec, you must
+have recorded: entrypoint files, traced caller chain, traced consumer
+chain, affected data structures/interfaces, existing tests, and
+unresolved assumptions — each with file:line evidence.
+
+#### For bug fixes — trace the full data/call path:
 
 1. **Start at the symptom.** Find the function that produces the wrong
    output or behavior. Read it.
 2. **Trace BACKWARD (callers).** Who calls this function? With what
-   arguments? Go at least 2 levels up. Use `grep -rn "functionName"` to
-   find all call sites. Read each one.
+   arguments? Trace up to 2 levels up (stop if graph terminates).
+   Use `grep -rn "functionName"` to find all call sites. Read each one.
 3. **Trace FORWARD (consumers).** Who uses the output? At least 2 levels
-   down. Read those too.
+   down (stop if graph terminates). Read those too.
 4. **Search for existing defenses.** Before proposing a new guard or
    fix, search for code that already handles this problem:
    `grep -rn "relatedKeyword"`. If you find existing defenses, explain
@@ -191,7 +213,7 @@ claim in your plan traces back to something you actually read.
    planning error is finding a gap in function A, without noticing that
    function A's caller already compensates for it. Trace the full path.
 
-### For new features — map the integration surface:
+#### For new features — map the integration surface:
 
 1. **Find analogous features.** Search for similar existing features.
    How are they wired in? What files do they touch?
@@ -201,7 +223,7 @@ claim in your plan traces back to something you actually read.
 3. **Check for existing infrastructure.** Does the foundation you need
    already exist? Don't reinvent what's there.
 
-### For all tasks:
+#### For all tasks:
 
 - **Verify file existence** before proposing to create new files
   (`test -f "path"`). If it exists, propose extending it.
@@ -212,155 +234,181 @@ claim in your plan traces back to something you actually read.
   Grep for the type name and every field name. Build a complete
   inventory, not a partial one.
 
-### Record your investigation
+### Task too vague?
 
-Write an `## Investigation` section in spec.md with:
-- What you traced (call chain / data flow / integration path — file:line)
-- What existing relevant code you found (guards, validators, analogous features)
-- What you verified and how
-- What assumptions remain unverified (flag these explicitly)
+After investigation, check if any of these are missing from the task
+description AND could not be inferred from code:
+- **Target behavior** — what should change
+- **Target surface** — which files, endpoints, or components
+- **Success condition** — how to know it's done
 
-**A spec.md without an Investigation section is incomplete.**
-**A plan.md that references code you haven't read is invalid.**
+If any are missing, ask user via AskUserQuestion before writing spec.
 
-## Phase 3: Write Plan A
+## Phase 3: Write Spec (Design)
 
-If `SPEC_EXISTS` (from Phase 1): spec.md already has content from an
-upstream skill. Append your `## Investigation` section to it if missing,
-but do not rewrite existing sections. Then write only `plan.md`.
+Write your spec.md following brainstorming style — **flexible sections
+scaled to the task's complexity.** A small bugfix gets a few paragraphs.
+An architectural change gets full sections.
 
-If `NO_SPEC`: write both `spec.md` and `plan.md` from scratch.
+### What to include (pick what's relevant)
 
-### spec.md structure
+- **Problem/Motivation** — what's broken, missing, or suboptimal
+- **Design approach** — how you'll solve it and why this approach
+- **Investigation findings** — what you traced, file:line refs, what
+  existing code you found, what assumptions remain unverified
+- **Changes by file** — which files are affected and what changes
+- **Acceptance criteria** — concrete, testable conditions for "done"
+- **Test plan** — what tests exist, what breaks, what's needed
+- **Risks / unknowns** — anything you couldn't verify from code alone
 
-```markdown
-## Background
-**Goal:** [One sentence — what this task achieves for the user/system]
-**Problem:** [What's broken, missing, or suboptimal — from the user's perspective]
-**Why now:** [What triggered this work — user report, tech debt, new requirement]
-**Context:** [2-3 sentences on how this fits into the broader system/product]
+### Spec self-review
 
-## Investigation
-### What was traced
-- [call chain / data flow / integration path with file:line refs]
+After writing, run this checklist:
 
-### Existing relevant code
-- [guards, validators, analogous features found — with file:line]
+1. **Placeholder scan:** Any "TBD", "TODO", incomplete sections? Fix them.
+2. **Internal consistency:** Do sections contradict each other?
+3. **Scope check:** Focused enough for a single plan?
+4. **Ambiguity check:** Could any requirement be interpreted two ways?
+   If so, pick one and make it explicit.
 
-### Unverified assumptions
-- [anything you could not confirm from code alone]
+Fix issues inline. No need to re-review.
 
-## Requirements
-[derived from the task + your investigation findings]
+## Phase 4: Diff & Verify
 
-## Non-goals
-[what this task explicitly does NOT do — prevents implementor over-building]
-
-## Acceptance Criteria
-[concrete, testable criteria]
-```
-
-**A spec.md without a Background section is incomplete.** The implementer
-needs to understand WHY they are building this, not just WHAT to build.
-Without background, the implementer makes wrong tradeoff decisions
-because they don't know what problem they're solving.
-
-### plan.md structure
-
-Implementation steps with:
-- Specific file paths and line numbers (from your investigation)
-- What to change and why
-- Tests that will break and how to update them
-- New tests needed
-
-Each step must be concrete enough that an implementer can execute it
-without inventing decisions. If a step requires a choice, make the
-choice explicit in the plan.
-
-## Phase 4: Codex Independent Plan B (via MCP)
-
-Call Codex via MCP to produce an independent plan for the same task.
-**Codex must NOT see Plan A.** Send only the original task description
-and point Codex at the repo.
-
-Read `independent-planner.md` for the MCP call parameters, role, and prompt template.
-
-### When Codex is unavailable
-
-If MCP call fails, perform self-critique as Plan B:
-1. Re-read your Plan A as if seeing it for the first time
-2. Deliberately look for what you might have missed
-3. Produce a Plan B section in the same format
-4. Add a warning: `⚠ Plan B was self-generated, not independent`
-
-## Phase 5: Diff & Verify
-
-Compare Plan A and Plan B. Categorize every divergence.
+Read `codex-spec.md` (written by the Codex MCP call dispatched in Phase 2).
+Compare it against your `spec.md`.
 
 ### For each divergence point:
 
-1. **Identify the divergence** — what does Plan A say vs Plan B?
+1. **Identify the divergence** — what does your spec say vs Codex's?
 2. **Verify against code** — read the actual code to determine which
    is correct. Do NOT resolve by reasoning about which "sounds better."
-3. **Assign disposition:**
-   - **patched** → Plan A updated based on evidence. Show the diff.
+3. **If still disagree — debate with Codex.** Use `mcp__codex__codex-reply`
+   with `threadId: INVESTIGATION_THREAD_ID`. Present your code evidence
+   and ask Codex to present its counter-evidence. Maximum 2 debate rounds.
+   Both sides must cite file:line references — no abstract arguments.
+4. **Assign disposition after debate:**
+   - **patched** → Your spec updated based on evidence. Show the diff.
    - **proven-false** → Codex's claim is wrong. Cite the code evidence.
-   - **escalated** → Cannot resolve from code alone. Needs user input.
-
-### Convergence points (both plans agree):
-
-Mark as **confirmed** — independent replication increases confidence.
+   - **conceded** → Codex convinced you with code evidence. Update spec.
+   - **escalated** → 2 debate rounds exhausted, still unresolved. Needs user input.
 
 ### Record in diff-report.md
 
-```markdown
-## Convergence Points
-- [What both plans independently agreed on]
+Only record divergences and their resolutions. If both specs agree on
+something, there's nothing to record — move on.
 
-## Divergences
-
-### D1: <short title>
-- **Plan A says:** ...
-- **Plan B says:** ...
-- **Code evidence:** file:line — <what the code actually shows>
-- **Disposition:** patched | proven-false | escalated
-- **Action taken:** <diff or escalation reason>
-
-### D2: ...
-
-## Summary
-- Confirmed: N points
-- Patched: N (Plan A updated)
-- Proven-false: N (Codex was wrong)
-- Escalated: N (needs user input)
-```
+For each divergence, write what happened: what each side claimed, what
+code evidence was cited during debate, and the final disposition
+(patched / proven-false / conceded / escalated).
 
 ### After diff resolution:
 
-- Update `spec.md` and `plan.md` with all `patched` items.
+- Update `spec.md` with all `patched` and `conceded` items.
 - If any `escalated` items exist:
   - **Standalone mode:** ask user via AskUserQuestion before proceeding.
+    Record the user's ruling in diff-report.md with disposition
+    `user-resolved` and what they decided. Update spec.md accordingly.
   - **/ship:auto mode:** do NOT ask user. Treat escalated items as BLOCKED
-    and return. Auto owns the only user-approval gate (Phase 3).
-- If diff reveals a critical investigation gap (e.g., Plan B found
-  important code Plan A missed entirely), go back to Phase 2 for
+    and return. Auto owns the only user-approval gate.
+- If diff reveals a critical investigation gap (e.g., Codex found
+  important code you missed entirely), go back to Phase 2 for
   targeted re-investigation. Maximum 1 re-investigation loop.
 
-## Phase 6: Blind Execution Drill (via MCP)
+## Phase 5: Write Plan
 
-The final gate. Give Codex the merged plan and ask it to act as an
-implementer. Its job: walk through the plan steps and flag every place
-it would need to guess.
+Translate the validated spec.md into an executable plan.md following
+the writing-plans format.
 
-Read `execution-drill.md` for the MCP call parameters, role, and prompt template.
-Use a **new** MCP session, not the Plan B thread.
+### plan.md structure
+
+```markdown
+# <Task Title> Implementation Plan
+
+> **For agentic workers:** Use /ship:dev to implement this plan
+> task-by-task. Steps use checkbox syntax for tracking.
+
+**Goal:** [One sentence — what this builds]
+
+**Architecture:** [2-3 sentences about approach]
+
+**Tech Stack:** [Key technologies/libraries]
+
+---
+
+### Task 1: [Component Name]
+
+**Files:**
+- Create: `exact/path/to/file.ext`
+- Modify: `exact/path/to/existing.ext:123-145`
+- Test: `tests/exact/path/to/test.ext`
+
+- [ ] **Step 1: Write the failing test**
+
+<complete test code>
+
+- [ ] **Step 2: Run test to verify it fails**
+
+Run: `<exact test command>`
+Expected: FAIL with "<specific error>"
+
+- [ ] **Step 3: Write minimal implementation**
+
+<complete implementation code>
+
+- [ ] **Step 4: Run test to verify it passes**
+
+Run: `<exact test command>`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+`git commit -m "feat: <description>"`
+
+### Task 2: ...
+```
+
+### Plan self-review
+
+After writing, check against spec.md:
+
+1. **Spec coverage:** Every acceptance criterion in spec.md has a task
+   that implements it. List any gaps.
+2. **Placeholder scan:** Search for "TBD", "TODO", vague steps. Fix them.
+3. **Type consistency:** Do types, function names, and signatures match
+   across tasks? A function called `clearLayers()` in Task 2 but
+   `clearFullLayers()` in Task 5 is a bug.
+
+Fix issues inline.
+
+## Phase 6: Execution Drill (via MCP)
+
+The final gate. Give Codex the plan and ask it to validate every step
+is implementable.
+
+Read `execution-drill.md` for the MCP call parameters, role, and
+prompt template. Use a **new** MCP session, not the investigation thread.
+Save the returned `threadId` as `DRILL_THREAD_ID` — needed for
+revision reruns.
+
+#### When Codex is unavailable
+
+If MCP call fails, dispatch a fresh Agent to perform the drill instead.
+The Agent gets the same prompt from `execution-drill.md` — it reads
+spec.md and plan.md with no prior context, providing independent review.
+Add a warning to the output: `WARNING: Drill was Agent-performed, not Codex`
 
 ### After the drill:
 
 - **All CLEAR** → Plan is ready for execution.
 - **UNCLEAR items** → Revise plan.md to make each step unambiguous.
-  Then re-run ONLY the unclear steps through a follow-up drill
-  (use `mcp__codex__codex-reply` on the drill thread).
+  Then re-run ONLY the unclear steps:
+  - If drill was Codex: use `mcp__codex__codex-reply` with
+    `threadId: DRILL_THREAD_ID` and prompt: "Tasks N, M were revised.
+    Re-read plan.md and re-evaluate ONLY those tasks using the same
+    criteria. Report CLEAR/UNCLEAR/BLOCKED."
+  - If drill was Agent fallback: dispatch a fresh Agent with the same
+    `execution-drill.md` prompt scoped to the revised tasks only.
   Maximum 1 revision loop.
 - **BLOCKED items** → If resolvable by investigation, investigate and
   fix. If not, escalate to user or mark plan as `blocked`.
@@ -372,9 +420,10 @@ Use a **new** MCP session, not the Plan B thread.
 ```text
 .ship/tasks/<task_id>/
   plan/
-    spec.md          — what to build (investigation + requirements)
-    plan.md          — how to build it (steps with file:line refs)
-    diff-report.md   — Plan A vs Plan B divergences and resolutions
+    spec.md          — final merged spec (flexible sections, brainstorming style)
+    codex-spec.md    — Codex's independent spec (for diff comparison)
+    plan.md          — how to build it (TDD tasks, writing-plans style)
+    diff-report.md   — Claude spec vs Codex spec divergences and resolutions
 ```
 
 ## Timeouts
@@ -387,8 +436,8 @@ Use a **new** MCP session, not the Plan B thread.
 
 | Error | Action |
 |-------|--------|
-| Codex MCP unavailable | Self-produce Plan B + self-drill with warning |
-| Codex output unparseable | Retry once with format reminder, then skip with warning |
+| Codex MCP unavailable | Self-produce second spec + Agent-drill with warning |
+| Codex output unparseable | Retry once with format reminder, then fall back to Agent drill |
 | Timeout | Abort, preserve artifacts, summarize honestly |
 | Re-investigation needed | Maximum 1 loop back to Phase 2 |
 | Drill revision needed | Maximum 1 revision loop |
@@ -401,8 +450,8 @@ Use a **new** MCP session, not the Plan B thread.
 - Timeout → preserve artifacts, summarize honestly
 
 ### Never stop for
-- Codex unavailable (self-produce Plan B with warning)
-- Codex output parse failure (retry once, then skip with warning)
+- Codex unavailable (self-produce second spec with warning)
+- Codex output parse failure (retry once, then Agent fallback)
 
 ### Detecting invocation mode
 
@@ -417,7 +466,7 @@ Use a **new** MCP session, not the Plan B thread.
 
 ## Summary
 - Investigation: <N> files traced, <M> existing defenses found
-- Independent replication: <N> convergences, <M> divergences resolved
+- Independent replication: <M> divergences resolved (<N> by evidence, <N> by debate)
 - Execution drill: <N>/<total> steps CLEAR
 
 ## Artifacts
@@ -451,16 +500,12 @@ RECOMMENDATION: <what the user should do next>
 
 <Bad>
 - Delegating investigation to a sub-agent (you must read the code yourself)
-- Writing spec.md without an Investigation section
-- Citing a file you haven't actually read
-- Claiming "function X is not called" without tracing all callers (at least 2 levels)
+- Writing plan.md with vague steps ("update the handler", "add tests")
+- Writing plan.md with placeholders (TBD, TODO, "similar to Task N")
+- Claiming "function X is not called" without tracing all callers
 - Proposing a fix without searching for existing defenses that already handle it
 - Proposing to create a file without checking if it already exists
 - Changing a value without grepping tests that assert the old value
-- Listing schema/interface fields without cross-referencing all consumers
-- Letting Codex see Plan A when producing Plan B (breaks independence)
-- Resolving divergences by "which sounds better" instead of code evidence
 - Marking plan ready when drill has BLOCKED items
 - Skipping the drill because "the plan looks solid"
-- Self-judging closure without code evidence for each disposition
 </Bad>

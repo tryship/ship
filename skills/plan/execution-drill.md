@@ -1,8 +1,9 @@
 # Execution Drill — Codex Prompt
 
-Used in Phase 6 of `/ship:plan`. Codex reviews the plan for implementability.
+Used in Phase 6 of `/ship:plan`. Codex reviews the plan for
+implementability and writing-plans format compliance.
 
-Use a **new** `mcp__codex__codex` session (not the Plan B thread).
+Use a **new** `mcp__codex__codex` session (not the investigation thread).
 
 ## MCP Call
 
@@ -25,24 +26,60 @@ Read these files:
 - .ship/tasks/<task_id>/plan/spec.md
 - .ship/tasks/<task_id>/plan/plan.md
 
-Then read the source files referenced in the plan to verify:
-- Do the file paths exist?
-- Do the line numbers match the current code?
-- Are the function signatures correct?
+## Part 1: Format Compliance
 
-For each implementation step, report ONE status:
-- CLEAR: The step is unambiguous, all referenced code matches
+Check that plan.md follows the writing-plans format:
+
+- [ ] Has header with Goal, Architecture, Tech Stack
+- [ ] Tasks have checkbox steps (- [ ] syntax)
+- [ ] Steps follow TDD order: failing test → verify fail → implement → verify pass → commit
+- [ ] Every code step has a complete code block (not a description of what to write)
+- [ ] Every run step has an exact command with expected output
+- [ ] Every file reference is a specific path (no "the test file" or "the handler")
+- [ ] No placeholders: TBD, TODO, "implement later", "similar to Task N",
+      "add appropriate error handling", "write tests for the above"
+
+Report any violations.
+
+## Part 2: Implementability
+
+For each task in plan.md, read the source files referenced and verify:
+
+- For **Create** paths: verify the file does NOT already exist (parent directory may be new — that's valid)
+- For **Modify/Test** paths: verify the file exists, line numbers match current code, function signatures are correct
+- Do the code blocks parse correctly (syntax check)?
+- Does each failing-test step specify a concrete assertion and failure mode that is plausibly unmet by the current code?
+
+For each task, report ONE status:
+- CLEAR: The task is unambiguous, all referenced code matches, format is correct
 - UNCLEAR: An implementer would need to guess about <specific thing>
 - BLOCKED: An implementer cannot proceed without <specific information>
 
-Output format:
-### Step N: <step title>
+## Part 3: Spec Coverage
+
+Read spec.md. For each acceptance criterion, verify that at least one
+task in plan.md implements it. Report any acceptance criteria with no
+corresponding task.
+
+## Output Format
+
+### Format Compliance
+- [PASS/FAIL] <checklist item> — <detail if FAIL>
+
+### Task N: <task title>
 - **Status:** CLEAR | UNCLEAR | BLOCKED
 - **Issue:** <what's missing, if not CLEAR>
 - **File check:** <path> — exists/missing, line N — matches/stale
+- **Code check:** <syntax ok / error description>
+
+### Spec Coverage
+- [COVERED] <criterion> — Task N
+- [MISSING] <criterion> — no task implements this
 
 ### Summary
-- CLEAR: N steps
-- UNCLEAR: N steps
-- BLOCKED: N steps
+- Format: PASS | FAIL (<N> violations)
+- CLEAR: N tasks
+- UNCLEAR: N tasks
+- BLOCKED: N tasks
+- Spec coverage: N/M criteria covered
 ```
