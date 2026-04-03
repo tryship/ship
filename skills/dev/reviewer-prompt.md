@@ -71,6 +71,9 @@ Report ONLY issues that meet at least one of:
 - Can cause data loss or corruption (with sequence of events)
 - Is a security vulnerability (with attack vector)
 - Contradicts an established codebase pattern (cite existing file:line)
+- Lets tests pass while real behavior is still wrong, including fixture-coupled logic, hardcoded expected values, or harness manipulation
+
+Treat reward-hacking-style shortcuts as correctness failures, not clever implementation.
 
 For each issue: what's wrong, where (file:line), how to trigger, how to fix.
 

@@ -113,6 +113,11 @@ feature touches both UI and API).
    issues the spec didn't anticipate. Each reference has its own
    exploration strategy and issue taxonomy.
 
+3. **Intent vs. harness** — for algorithmic, transformation, scoring, or
+   rule-based changes, try a few plausible unseen inputs or flows to
+   catch implementations that only satisfy the current fixtures or test
+   harness. If behavior appears overfit to the checks, report it.
+
 ### Evidence
 
 All evidence (screenshots, videos, curl outputs, command outputs)
