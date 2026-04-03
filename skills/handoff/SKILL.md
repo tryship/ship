@@ -204,7 +204,34 @@ In each fix round:
    trying to ship. If both sides contain valid changes, merge them.
 8. If you cannot resolve the conflict confidently, escalate instead of guessing.
 9. After any code change, run the relevant local verification again.
-10. Commit the fix, push, and go back to Phase 5.
+10. Commit the fix and push it.
+11. If the push fully addresses GitHub feedback, mark the addressed feedback as resolved:
+    - for review threads, resolve the thread
+    - for obsolete bot or workflow comments, hide/minimize the comment with
+      classifier `RESOLVED`
+12. Never resolve, hide, or minimize feedback that is only partially addressed
+    or still needs user judgment.
+13. Go back to Phase 5.
+
+Use GitHub GraphQL when needed:
+
+```bash
+# Resolve a PR review thread
+gh api graphql -f query='
+  mutation($threadId: ID!) {
+    resolveReviewThread(input: {threadId: $threadId}) {
+      thread { id isResolved }
+    }
+  }' -F threadId="<thread-id>"
+
+# Hide/minimize an obsolete bot or workflow comment as resolved
+gh api graphql -f query='
+  mutation($subjectId: ID!) {
+    minimizeComment(input: {subjectId: $subjectId, classifier: RESOLVED}) {
+      minimizedComment { isMinimized }
+    }
+  }' -F subjectId="<comment-node-id>"
+```
 
 Output: `[Ship] Fix round <i>/3 — <what was fixed>. Tests pass. Re-checking CI...`
 
@@ -269,6 +296,8 @@ Output: `[Ship] Fix round <i>/3 — <what was fixed>. Tests pass. Re-checking CI
   - npm run lint
   Result: PASS
 [Handoff] Committing fix and pushing...
+[Handoff] Resolving addressed review thread on GitHub...
+[Handoff] Hiding obsolete github-actions bot comment as RESOLVED...
 
 ── Phase 5: Wait for GitHub Checks ───────────────────────
 
@@ -287,6 +316,7 @@ Output: `[Ship] Fix round <i>/3 — <what was fixed>. Tests pass. Re-checking CI
 | **Docs belong before PR** | CHANGELOG/docs updates happen before the initial push |
 | **Fix the smallest real cause** | The CI failure is addressed from logs, not by broad refactoring |
 | **AI review is part of the loop** | Actionable AI review feedback triggers a second fix round |
+| **Resolved feedback is closed explicitly** | After a fix is pushed, addressed threads/comments are marked resolved on GitHub |
 | **Re-verify after every code change** | Each fix round reruns local verification before push |
 | **Retry limit is explicit** | The example shows numbered fix rounds tied to the max of 3 |
 
@@ -311,6 +341,8 @@ Escalate when:
 - Using `git add -A` when unrelated local changes are present
 - Forgetting to stage and commit changelog or doc edits before the first push
 - Treating `cancelled` checks as failures by default
+- Marking a thread or comment as resolved before the fix is actually pushed
+- Resolving comments that still need product, security, or architecture judgment
 - Trying to fix failures without reading the actual check logs or review comments
 - Syncing with base preemptively instead of only when drift, conflicts, or repo policy require it
 - Pushing code changes without re-running relevant local verification
