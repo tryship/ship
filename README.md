@@ -8,11 +8,11 @@ Ship is a harness, not a copilot. It doesn't help AI write code — it constrain
 
 **The problem Ship solves:** AI coding agents are capable but unreliable. They skip tests, hallucinate about code they haven't read, review their own work and call it good, and declare victory without evidence. Ship makes these failure modes structurally impossible.
 
-**Quality gates at every transition.** The `stop-gate.sh` hook prevents the orchestrator from exiting until all pipeline phases are complete. Each phase produces artifacts that the next phase consumes — no shortcuts, no skipped steps.
+**Quality gates at every transition.** The `stop-gate.sh` hook prevents the orchestrator from exiting while the pipeline is active (tracked via `.ship/ship-auto.local.md`). Each phase produces artifacts that the next phase consumes — no shortcuts, no skipped steps.
 
 **Every phase is an isolated subagent.** The reviewer has never seen the implementation context. The QA evaluator is contractually forbidden from reading the review or verification artifacts — it can only look at the spec and the running application. Fresh context per phase means no accumulated bias, no rubber-stamping.
 
-**State lives on disk, not in memory.** The current phase is derived from which artifacts exist: `plan/spec.md` present → design done. `review.md` filled → review done. The stop-gate hook checks these artifacts before allowing the session to exit — if any phase was skipped or incomplete, you're sent back.
+**State lives on disk, not in memory.** The current phase is tracked in `.ship/ship-auto.local.md`. The stop-gate hook reads this file and blocks session exit while the pipeline is active. On resume, auto reads the phase field and picks up where it left off.
 
 **Plans are adversarially tested.** The planner reads your codebase (tracing call chains, mapping integration surfaces, grepping for existing defenses), writes a spec and plan, then hands it to an independent Codex challenger. The challenger produces falsification cards — code-grounded objections with file paths and snippets. The planner must respond with code evidence, not hand-waving. Two rounds of this before you see anything.
 
@@ -24,7 +24,7 @@ You describe what you want to build. Ship handles the constraints that make AI o
 
 ## Core Philosophy
 
-- **Orchestrator pattern** — a read-only orchestrator delegates every phase to fresh subagents with isolated context, preserving the coordination window for decisions that matter
+- **Orchestrator pattern** — a thin orchestrator delegates every phase to fresh subagents, may read code for investigation, but never writes code itself
 - **Adversarial planning** — plans are stress-tested through independent Codex challenger rounds before any code is written
 - **Evidence over claims** — every phase produces artifacts on disk; quality gates verify artifacts exist and pass before advancing
 - **Test-driven development** — implementation follows a RED-GREEN-REFACTOR cycle with per-story code review
@@ -35,7 +35,7 @@ You describe what you want to build. Ship handles the constraints that make AI o
 
 **plan** — Reads the codebase yourself (no delegation), traces call chains and integration surfaces, writes spec + plan with file:line references. Hands it to an independent Codex challenger for 2 rounds of adversarial review. You see the plan only after it survives falsification.
 
-**auto** — The full pipeline. Bootstraps a task directory, invokes plan, presents the design for your approval, then runs dev → review → verify → QA → simplify → handoff autonomously. The orchestrator is read-only — a guard hook blocks it from touching files. Every phase is a fresh subagent dispatch.
+**auto** — The full pipeline. Bootstraps a task directory, invokes design, then runs dev → review → QA → simplify → handoff autonomously. State tracked in `.ship/ship-auto.local.md` — stop-gate hook blocks exit while active. Every phase is a fresh subagent dispatch.
 
 **dev** — Executes implementation stories from a plan. Codex implements each story, Claude reviews spec compliance and code correctness. Stories run sequentially.
 
@@ -53,7 +53,7 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 
 | Skill | Description |
 |-------|-------------|
-| `/ship:auto` | Full pipeline orchestrator: design → dev → review → verify → QA → simplify → handoff |
+| `/ship:auto` | Full pipeline orchestrator: design → dev → review → QA → simplify → handoff |
 | `/ship:design` | Parallel investigation by Claude + Codex, adversarial spec diff with debate, executable TDD plan validated by drill |
 | `/ship:dev` | Execute implementation stories from a plan — Codex implements, Claude reviews |
 | `/ship:review` | Find every bug in the diff, then diagnose the structural deficiency that breeds them |
