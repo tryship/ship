@@ -273,6 +273,8 @@ An architectural change gets full sections.
 - **Investigation findings** — what you traced, file:line refs, what
   existing code you found, what assumptions remain unverified
 - **Changes by file** — which files are affected and what changes
+- **Intent / non-goals / forbidden shortcuts** — when relevant, state what
+  counts as satisfying the task versus merely satisfying the current tests
 - **Acceptance criteria** — concrete, testable conditions for "done"
 - **Test plan** — what tests exist, what breaks, what's needed
 - **Risks / unknowns** — anything you couldn't verify from code alone
@@ -286,6 +288,8 @@ After writing, run this checklist:
 3. **Scope check:** Focused enough for a single plan?
 4. **Ambiguity check:** Could any requirement be interpreted two ways?
    If so, pick one and make it explicit.
+5. **Integrity check:** If tests could be gamed, does the spec say what
+   behavior is required and which shortcuts are forbidden?
 
 Fix issues inline. No need to re-review.
 
@@ -397,6 +401,9 @@ After writing, check against spec.md:
 3. **Type consistency:** Do types, function names, and signatures match
    across tasks? A function called `clearLayers()` in Task 2 but
    `clearFullLayers()` in Task 5 is a bug.
+4. **Anti-shortcut check:** Would an implementer know not to solve this
+   by overfitting fixtures, editing the harness, or optimizing for tests
+   while violating the task intent?
 
 Fix issues inline.
 

@@ -56,6 +56,17 @@ Follow the TDD cycle:
    git add -A && git commit -m "<type>(<scope>): <description>"
    If you do not commit, your work is lost and the story fails.
 
+Passing tests is necessary, not sufficient. Preserve the task's intended
+behavior, not just the current harness behavior.
+
+## Pressure / Anti-Shortcut Rules
+
+- Do not hardcode known fixture values, sample outputs, or branches that only exist to satisfy the current tests
+- Do not weaken tests, edit the harness, or hide failures to manufacture a pass
+- Do not exploit benchmark quirks or loopholes when they violate the story's stated intent
+- If the requirements seem impossible, inconsistent, or only satisfiable by a test-specific hack, stop and report BLOCKED or NEEDS_CONTEXT
+- Prefer an honest limitation with evidence over a clever workaround that only makes the tests green
+
 ## Code Organization
 
 - If the plan defines file structure, follow it
@@ -70,6 +81,7 @@ Before committing, check:
 - Quality: names clear, simplest thing that works?
 - Discipline: ONLY what the story asks, no gold-plating?
 - Testing: tests verify actual behavior, catch real regressions?
+- Integrity: would this still work on plausible unseen inputs, not just the current fixtures?
 
 Fix issues before committing.
 
@@ -83,6 +95,7 @@ STOP and report if:
 - Task requires architectural decisions with multiple valid approaches
 - Story involves restructuring the plan didn't anticipate
 - Codebase state doesn't match story assumptions
+- The only apparent way forward is to overfit to tests, fixtures, or harness behavior
 
 ## Report Format
 

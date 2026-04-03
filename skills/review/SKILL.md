@@ -153,6 +153,8 @@ Check for:
 - security and trust-boundary issues
 - forgotten enum arms or stale consumers
 - tests that assert the wrong thing
+- reward-hacking style shortcuts that pass tests while violating task intent
+- fixture-coupled branches, hardcoded expected values, or harness edits that only exist to satisfy the current checks
 - cross-file inconsistencies from partial updates
 
 ### 5. Rank findings
