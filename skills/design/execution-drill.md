@@ -1,11 +1,18 @@
-# Execution Drill — Codex Prompt
+# Execution Drill — Peer Agent Prompt
 
-Used in Phase 6 of `/ship:design`. Codex reviews the plan for
+Used in Phase 6 of `/ship:design`. The peer agent reviews the plan for
 implementability and writing-plans format compliance.
 
-Use a **new** `mcp__codex__codex` session (not the investigation thread).
+Use a **new** peer session, not the investigation thread.
 
-## MCP Call
+## Dispatch
+
+Resolve the peer runtime before dispatching:
+
+- Preferred: use the non-host provider.
+- Fallback: use a fresh same-provider session and note weaker independence.
+
+If the peer runtime is Codex, use:
 
 ```
 mcp__codex__codex({
@@ -13,6 +20,12 @@ mcp__codex__codex({
   approval-policy: "never",
   cwd: <repo root>
 })
+```
+
+If the peer runtime is Claude, use:
+
+```bash
+claude -p --permission-mode bypassPermissions "<prompt below, with <task_id> filled in>"
 ```
 
 ## Prompt

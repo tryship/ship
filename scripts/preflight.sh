@@ -7,13 +7,25 @@ set -u
 _SKILL_NAME="${SHIP_SKILL_NAME:-unknown}"
 
 # --- User preferences ---
-# Settings file: .claude/ship.local.md (YAML frontmatter)
+# Settings file (first match wins):
+#   .ship/ship.local.md
+#   .claude/ship.local.md
+#   .codex/ship.local.md
 # Supported settings:
 #   auto_login: true|false  — skip confirmation prompt on login
 _REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
-_SETTINGS_FILE="${_REPO_ROOT}/.claude/ship.local.md"
+_SETTINGS_FILE=""
+for _CANDIDATE in \
+  "${_REPO_ROOT}/.ship/ship.local.md" \
+  "${_REPO_ROOT}/.claude/ship.local.md" \
+  "${_REPO_ROOT}/.codex/ship.local.md"; do
+  if [ -f "$_CANDIDATE" ]; then
+    _SETTINGS_FILE="$_CANDIDATE"
+    break
+  fi
+done
 _AUTO_LOGIN="false"
-if [ -f "$_SETTINGS_FILE" ]; then
+if [ -n "$_SETTINGS_FILE" ] && [ -f "$_SETTINGS_FILE" ]; then
   _FM=$(sed -n '/^---$/,/^---$/{ /^---$/d; p; }' "$_SETTINGS_FILE")
   _AUTO_LOGIN=$(echo "$_FM" | grep '^auto_login:' | sed 's/auto_login:[[:space:]]*//' || echo "false")
 fi

@@ -4,12 +4,12 @@ Detailed guides for every Ship skill — philosophy, workflow, and examples.
 
 | Skill | Role | What it does |
 |-------|------|--------------|
-| [`/ship:auto`](#auto) | **Pipeline Orchestrator** | The full pipeline. One command from task description to merge-ready PR. Delegates every phase to fresh subagents with quality gates at every transition. Fully autonomous — no approval gates. |
-| [`/ship:design`](#design) | **Adversarial Designer** | You and Codex independently investigate the codebase and produce specs in parallel. Divergences resolved by code evidence and debate. Merged spec feeds an executable TDD plan validated by Codex drill. |
-| [`/ship:dev`](#dev) | **Implementation Engine** | Executes stories from a plan. Codex writes code, Claude reviews — different models catching each other's blind spots. Stories run sequentially; review must pass before the next one starts. |
+| [`/ship:auto`](#auto) | **Pipeline Orchestrator** | The full pipeline. One command from task description to a PR with checks green. Delegates every phase to fresh subagents with quality gates at every transition. Fully autonomous — no approval gates. |
+| [`/ship:design`](#design) | **Adversarial Designer** | The host agent and a peer agent independently investigate the codebase and produce specs in parallel. Divergences are resolved by code evidence and debate. The merged spec feeds an executable TDD plan validated by a peer drill. |
+| [`/ship:dev`](#dev) | **Implementation Engine** | Executes stories from a plan via parallel waves. Dependency analysis groups independent stories; within each wave stories run in parallel via git worktrees, each reviewed independently, then merged before the next wave. |
 | [`/ship:review`](#review) | **Staff Engineer** | Find every bug in the diff, then diagnose the structural deficiency that breeds them. Bugs are symptoms — the structural crack is the disease. |
 | [`/ship:qa`](#qa) | **Independent QA** | Starts your app, tests every acceptance criterion against the running product. Independence contract: cannot read the review or plan. Only direct observation counts. |
-| [`/ship:handoff`](#handoff) | **Release Engineer** | Creates a PR with a proof bundle, then enters the fix loop: CI failures, review comments, merge conflicts. Doesn't stop until the PR is merge-ready or retries are exhausted. |
+| [`/ship:handoff`](#handoff) | **Release Engineer** | Creates a PR with a concise verification summary, then enters the fix loop: GitHub check failures, review comments, merge conflicts. Doesn't stop until the PR checks are green or retries are exhausted. |
 | [`/ship:refactor`](#refactor) | **Structural Diagnostician** | Traces from concrete pain to structural cracks. Diagnoses and fixes directly — surgical (within-file) or structural (cross-file) execution. |
 | [`/ship:setup`](#setup) | **Repo Bootstrapper** | Detects stack, installs tools, configures CI/CD and pre-commit hooks, discovers semantic constraints from code and git history, generates AGENTS.md + CONVENTIONS.md + hookify safety rules. Audits existing harness for staleness. |
 
@@ -27,9 +27,9 @@ AI coding agents are capable but unreliable. They skip tests, hallucinate about 
 
 The orchestrator delegates all code changes to fresh subagents. It may read code when investigating issues (e.g. NEEDS_CONTEXT from dev), but never writes code itself. State is tracked in `.ship/ship-auto.local.md` — the stop-gate hook prevents exit while the pipeline is active.
 
-### The GAN architecture
+### The independence architecture
 
-Implementation and review use **different models**. Codex generates code. Claude reviews it. Their blind spots don't overlap. This is the same principle that makes GANs work — the generator and discriminator improve each other because they fail in different ways.
+Implementation and review use **separate runtimes**. Cross-provider separation is preferred when available because model biases differ as well as session context. When only one provider is available, Ship still uses fresh same-provider sessions so review does not collapse into self-review.
 
 The QA evaluator is contractually forbidden from reading the review or the plan. It can only look at the spec and the running application. Fresh context per phase means no accumulated bias, no rubber-stamping.
 
@@ -45,7 +45,7 @@ Bootstrap → Design → Dev → Review → QA → Simplify → Handoff
 4. **Review** — invoke `/ship:review` for staff-engineer code review
 5. **QA** — invoke `/ship:qa` against the running application
 6. **Simplify** — behavior-preserving cleanup via standalone simplify skill
-7. **Handoff** — invoke `/ship:handoff` to create PR and shepherd it to merge-ready
+7. **Handoff** — invoke `/ship:handoff` to create PR and shepherd it until checks are green
 
 Review and QA have fix loops: if bugs/issues are found, auto dispatches dev to fix them, then re-runs the phase. No phase is ever skipped.
 
@@ -58,13 +58,13 @@ The current phase is tracked in `.ship/ship-auto.local.md` — a YAML frontmatte
 ```
 You:   Add rate limiting to the /api/upload endpoint
 
-Claude: [Ship] Bootstrapping task: rate-limit-upload
+Assistant: [Ship] Bootstrapping task: rate-limit-upload
         [Ship] Phase 2: Design — investigating codebase...
 
         [Plan] Read src/routes/api/upload.ts, traced to middleware chain...
         [Plan] Found existing rate limiter in src/middleware/rateLimit.ts
                but /api/upload bypasses it (line 42, direct route mount).
-        [Plan] Codex challenger confirmed: both plans agree on middleware approach.
+        [Plan] Peer challenger confirmed: both plans agree on middleware approach.
         [Plan] Execution drill passed — 3 stories, all implementable.
 
         [Ship] Design complete — 3 stories extracted.
@@ -101,7 +101,7 @@ Claude: [Ship] Bootstrapping task: rate-limit-upload
         PR #48 created. CI passing. Ready for review.
 ```
 
-One command. Task description to merge-ready PR. Fully autonomous.
+One command. Task description to a PR with checks green. Fully autonomous.
 
 ---
 
@@ -115,22 +115,22 @@ Most AI planning is a monologue. The model reads your request, skims the codebas
 
 Two phases produce two artifacts:
 
-**Phase 1: Design** — Claude and Codex independently investigate the codebase using identical methodology and produce separate specs. Codex is dispatched first (async MCP), then Claude investigates in parallel. Neither sees the other's spec. Divergences are resolved by code evidence, and when evidence alone isn't conclusive, by debate (max 2 rounds via MCP thread, both sides cite file:line).
+**Phase 1: Design** — the host agent and a peer agent independently investigate the codebase using identical methodology and produce separate specs. The peer is dispatched first, then the host investigates in parallel. Neither sees the other's spec. Divergences are resolved by code evidence, and when evidence alone isn't conclusive, by debate (max 2 rounds on the peer thread/session, both sides cite file:line).
 
 The merged spec follows brainstorming style — flexible sections scaled to complexity. A small bugfix gets a few paragraphs. An architectural change gets full sections.
 
-**Phase 2: Write Plan** — The validated spec feeds an executable plan in writing-plans format: bite-sized TDD tasks with checkbox steps, complete code blocks, exact commands, no placeholders. Codex validates the plan via execution drill — checking format compliance, file path existence, and spec coverage.
+**Phase 2: Write Plan** — The validated spec feeds an executable plan in writing-plans format: bite-sized TDD tasks with checkbox steps, complete code blocks, exact commands, no placeholders. The peer agent validates the plan via execution drill — checking format compliance, file path existence, and spec coverage.
 
 ### The adversarial loop
 
-This is not a review. It is two independent investigations of the same problem by different models.
+This is not a review. It is two independent investigations of the same problem by separate runtimes, ideally on different providers.
 
-- **Specs diverge** → resolution by code evidence first. If still unresolved, debate with Codex on the MCP thread (max 2 rounds, both sides cite file:line). Dispositions: patched, proven-false, conceded, or escalated to user.
+- **Specs diverge** → resolution by code evidence first. If still unresolved, debate with the peer agent on the same thread/session when possible (max 2 rounds, both sides cite file:line). Dispositions: patched, proven-false, conceded, or escalated to user.
 - **Debate exhausted** → escalated items go to the user in standalone mode, or block in auto mode.
 
 ### The execution drill
 
-The final gate: Codex reads the plan and checks every task for implementability. Format compliance (TDD order, checkboxes, no placeholders), file path verification (Create paths don't exist, Modify paths do), and spec coverage (every acceptance criterion has a task).
+The final gate: the peer agent reads the plan and checks every task for implementability. Format compliance (TDD order, checkboxes, no placeholders), file path verification (Create paths don't exist, Modify paths do), and spec coverage (every acceptance criterion has a task).
 
 Tasks flagged UNCLEAR get revised and re-drilled once. Plans that survive are implementable.
 
@@ -139,7 +139,7 @@ Tasks flagged UNCLEAR get revised and re-drilled once. Plans that survive are im
 ```
 You:   Design adding WebSocket support for real-time notifications
 
-Claude: [Design] Dispatching Codex investigation...
+Assistant: [Design] Dispatching peer investigation...
         [Design] Investigating codebase...
         Read src/server.ts — Express app, no existing WS setup.
         Read src/routes/notifications.ts — polling endpoint, 5s interval.
@@ -148,18 +148,18 @@ Claude: [Design] Dispatching Codex investigation...
 
         [Design] Writing spec.md...
 
-        [Design] Reading Codex spec...
+        [Design] Reading peer spec...
         [Design] Diffing specs...
 
-        DIVERGENCE: Claude spec modifies server.ts directly.
-                    Codex spec creates separate ws-server.ts.
+        DIVERGENCE: Host spec modifies server.ts directly.
+                    Peer spec creates separate ws-server.ts.
                     → Code evidence: server.ts:14 already has upgrade
-                      handler for health checks. Codex is right.
+                      handler for health checks. Peer is right.
                     → Disposition: conceded. spec.md updated.
 
         [Design] Writing plan.md (3 TDD tasks)...
         [Design] Execution drill...
-        Codex flagged: "Task 2 Step 1 test references NotificationType
+        Peer flagged: "Task 2 Step 1 test references NotificationType
         but doesn't specify which file." → UNCLEAR
         → Revised: added src/types/notification.ts:8. Re-drilled: CLEAR.
 
@@ -172,51 +172,46 @@ Claude: [Design] Dispatching Codex investigation...
 
 This is the **implementation engine**.
 
-It takes a plan with concrete stories and executes them one at a time. But the key insight is who does what: **Codex generates, Claude discriminates.**
+The key insight is role separation: **the peer implements, the fresh reviewer discriminates.** The peer implementer handles each story in an isolated session. A fresh reviewer — ideally on the other provider — checks spec compliance and code correctness independently.
 
-### Why two models?
+### Waves and dependency analysis
 
-Self-review doesn't work. When the same model writes code and reviews it, the review inherits all the blind spots of the implementation. It's like proofreading your own essay — you read what you meant to write, not what you actually wrote.
+Stories are analyzed for dependencies (shared files, import chains) and grouped into **waves**. Independent stories within a wave run **in parallel** via git worktrees; waves run sequentially.
 
-Ship separates the roles. Codex implements each story via MCP. Then a fresh Claude agent — with no knowledge of the implementation session — reviews for spec compliance and code correctness. Different models fail in different ways. That's the point.
+1. **Build dependency graph** — identify which stories create, modify, or import the same files
+2. **Sort into waves** — topological sort into groups with no intra-group dependencies
+3. **Per wave** — create worktrees, dispatch peer implementers in parallel, review each independently
+4. **Wave merge** — merge all story branches back after review passes
+5. **Cross-story regression** — full test suite after all waves complete
 
-### The story loop
-
-For each story in the plan:
-
-1. **Record start SHA** — so we can diff exactly what changed
-2. **Codex implements** — fresh MCP session with the story spec, plan context, and code conventions
-3. **Claude reviews** — fresh agent, different model, sees only the diff and the spec
-4. **If FAIL** — targeted fix (max 2 rounds), not a full rewrite
-5. **Record cross-story context** — later stories know what earlier stories built
-
-After all stories, a cross-story regression test catches interactions between stories that individual reviews missed.
+If FAIL → targeted fix (max 2 rounds), not a full rewrite.
 
 ### Example
 
 ```
 You:   /ship:dev
 
-Claude: [Dev] Reading plan: 3 stories for rate-limit-upload
+Assistant: [Dev] Reading plan: 3 stories for rate-limit-upload
 
-        [Dev] Story 1/3: Wire /api/upload through rate limiter
-        [Codex] Implementing... done (4 files changed)
-        [Review] Checking spec compliance...
-        [Review] PASS — middleware correctly applied, test added
+        [Dev] Dependency analysis: 2 waves
+              Wave 1: [Story 1, Story 2] ← parallel (no shared files)
+              Wave 2: [Story 3] ← depends on Story 1
 
-        [Dev] Story 2/3: Add per-user upload quota
-        [Codex] Implementing... done (3 files changed)
-        [Review] Checking spec compliance...
-        [Review] FAIL — Redis key uses IP instead of user ID
-        [Dev] Targeted fix round 1...
-        [Review] PASS
+        [Dev] Wave 1: creating worktrees, dispatching in parallel...
+        [Peer] Story 1: Wire /api/upload through rate limiter... done
+        [Peer] Story 2: Add per-user upload quota... done
+        [Review] Story 1: PASS
+        [Review] Story 2: FAIL — Redis key uses IP instead of user ID
+        [Dev] Story 2: targeted fix round 1...
+        [Review] Story 2: PASS
+        [Dev] Wave 1: merging branches... clean.
 
-        [Dev] Story 3/3: Return 429 with Retry-After header
-        [Codex] Implementing... done (2 files changed)
+        [Dev] Wave 2: Story 3 (sequential)
+        [Peer] Return 429 with Retry-After header... done
         [Review] PASS
 
         [Dev] Cross-story regression: all tests green.
-        [Dev] 3/3 stories complete.
+        [Dev] 3/3 stories, 2 waves complete.
 ```
 
 ---
@@ -260,7 +255,7 @@ Most projects have a frontend. When you test through the browser, you implicitly
 ```
 You:   /ship:qa
 
-Claude: [QA] Reading spec and diff...
+Assistant: [QA] Reading spec and diff...
         [QA] Diff touches: src/api/rate-limit.ts, src/components/UploadForm.tsx
         [QA] Starting application... server ready on :3000
 
@@ -288,18 +283,15 @@ This is the **last mile**.
 
 Most branches die after the interesting work is done. The code works, the tests pass, but the PR never gets created — or it gets created and then CI fails and nobody fixes it. Handoff exists to close that gap.
 
-### The proof bundle
+### The PR summary
 
-Handoff doesn't just create a PR. It carries evidence. Every PR body includes a proof table:
+Handoff doesn't just create a PR. It carries the minimum useful verification summary.
 
-| Artifact | Status | SHA |
-|----------|--------|-----|
-| Tests | PASS (47/47) | a1b2c3d |
-| Lint | PASS | a1b2c3d |
-| Coverage | 89% (+3%) | a1b2c3d |
-| QA | PASS (97/100) | a1b2c3d |
+Every PR body should say:
 
-The SHA stamps prove the evidence matches the code being merged, not some earlier version that has since changed.
+- what changed
+- what local verification ran
+- any known follow-up, risk, or skipped check
 
 ### The fix loop
 
@@ -310,7 +302,7 @@ After creating the PR, handoff enters a loop:
 3. If review comments → mechanical fixes auto-addressed, judgment calls escalated
 4. If merge conflicts → auto-resolve, re-verify
 
-Max 2 rounds. If it can't get the PR merge-ready in 2 rounds, it escalates to you with a clear explanation of what's blocking.
+Max 3 rounds. If it can't get the PR checks green in 3 rounds, it escalates to you with a clear explanation of what's blocking.
 
 ### Harness freshness check
 
@@ -328,7 +320,7 @@ Before declaring the PR ready, handoff verifies that harness docs (AGENTS.md, CO
 ```
 You:   /ship:handoff
 
-Claude: [Handoff] Checking proof freshness...
+Assistant: [Handoff] Checking proof freshness...
         Tests: PASS at a1b2c3d (current HEAD) ✓
         Lint: PASS at a1b2c3d ✓
         QA: PASS at a1b2c3d ✓
@@ -339,7 +331,7 @@ Claude: [Handoff] Checking proof freshness...
         [Handoff] Waiting for CI...
         CI: 3/3 checks passed ✓
 
-        [Handoff] PR #48 is merge-ready.
+        [Handoff] PR #48 checks are green.
         https://github.com/yourorg/yourrepo/pull/48
 ```
 
@@ -379,7 +371,7 @@ Code changes, not documents. Diagnoses the pain, traces to the structural crack,
 ```
 You:   Every time I add a new payment provider, I have to change 6 files.
 
-Claude: [Refactor] Tracing from pain...
+Assistant: [Refactor] Tracing from pain...
         Read src/payments/stripe.ts, src/payments/paypal.ts
         Read src/routes/checkout.ts — switch statement on provider type (line 84)
         Read src/services/billing.ts — another switch (line 112)
@@ -440,7 +432,7 @@ If harness files already exist (AGENTS.md, CLAUDE.md, CONVENTIONS.md), setup aud
 ```
 You:   /ship:setup
 
-Claude: [Setup] Detecting stack...
+Assistant: [Setup] Detecting stack...
         TypeScript (pnpm)
         Linter: oxlint (ready)
         Formatter: prettier (ready)

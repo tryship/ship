@@ -25,7 +25,8 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=setup source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
+SHIP_SKILL_NAME=setup source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -495,10 +496,9 @@ Harness:
 - `references/runtime-install-guide.md` — platform-specific runtime installation
 - `references/harness-audit.md` — harness freshness audit (Phase 3.5)
 
-<Bad>
+## Red Flag
 - Putting style rules in CONVENTIONS.md
 - Putting grep-able checks in CONVENTIONS.md instead of hookify rules
 - Generating rules from templates without reading code
 - Running Dependabot inside CI/CD module
 - Overwriting existing core.hooksPath without asking
-</Bad>

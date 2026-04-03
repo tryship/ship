@@ -6,7 +6,7 @@
 #   "ship": {
 #     "type": "http",
 #     "url": "https://api.ship.tech/mcp",
-#     "headersHelper": "${CLAUDE_PLUGIN_ROOT}/scripts/auth-headers.sh"
+#     "headersHelper": "${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}/scripts/auth-headers.sh"
 #   }
 set -u
 

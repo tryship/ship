@@ -1,7 +1,7 @@
 ---
 name: design
-version: 1.0.0
-description: "Adversarial pre-coding planning: you and Codex independently investigate the codebase and produce specs, then diff. Merged spec feeds an executable plan validated by Codex drill."
+version: 1.1.0
+description: "Adversarial pre-coding planning: the host agent and a peer agent independently investigate the codebase, diff specs, and validate the final plan with an execution drill."
 allowed-tools:
   - Bash
   - Read
@@ -18,7 +18,8 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=plan source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
+SHIP_SKILL_NAME=plan source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -31,8 +32,22 @@ If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
 You ARE the planner. You read code, investigate, write spec and plan.
 You must read the code yourself — delegating investigation loses the
-context needed to write a good plan. Codex investigates independently
-and produces its own spec for adversarial comparison.
+context needed to write a good plan. A peer agent investigates
+independently and produces its own spec for adversarial comparison.
+
+## Runtime Resolution
+
+- **Host agent**: the provider currently running this skill
+- **Peer agent**: the non-host provider when available; otherwise a
+  fresh same-provider session
+
+Resolve once at the start:
+- Claude host → Codex is the peer investigator and drill agent
+- Codex host → Claude is the peer investigator and drill agent
+- If Claude is the peer, dispatch with `claude -p --permission-mode bypassPermissions`.
+- If Codex is the peer, dispatch with `mcp__codex__codex`.
+- If only one provider is available, use a fresh same-provider session
+  and note that independence is weaker.
 
 ## Process Flow
 
@@ -42,50 +57,50 @@ digraph plan {
 
     "Start" [shape=doublecircle];
     "Resolve task_id, create dir" [shape=box];
-    "Dispatch Codex investigation (MCP, async)" [shape=box];
-    "Claude investigates + writes spec" [shape=box];
-    "Read Codex spec" [shape=box];
+    "Dispatch peer investigation" [shape=box];
+    "Host investigates + writes spec" [shape=box];
+    "Read peer spec" [shape=box];
     "Task too vague?" [shape=diamond];
     "Ask user for clarification" [shape=box];
-    "Diff Claude spec vs Codex spec" [shape=box];
+    "Diff host spec vs peer spec" [shape=box];
     "Critical gap found?" [shape=diamond];
     "Resolve divergences by code evidence" [shape=box];
-    "Debate with Codex (max 2 rounds)" [shape=box];
+    "Debate with peer agent (max 2 rounds)" [shape=box];
     "Escalated items?" [shape=diamond];
     "Ask user to resolve" [shape=box];
     "Write spec.md (merged)" [shape=box];
     "Write plan.md (executable tasks)" [shape=box];
     "Self-review plan against spec" [shape=box];
-    "Codex execution drill (MCP)" [shape=box];
+    "Peer execution drill" [shape=box];
     "All steps CLEAR?" [shape=diamond];
     "Revise plan for unclear steps" [shape=box];
     "STOP: BLOCKED — unresolvable without user" [shape=octagon, style=filled, fillcolor=red, fontcolor=white];
     "Ready for execution" [shape=doublecircle];
 
     "Start" -> "Resolve task_id, create dir";
-    "Resolve task_id, create dir" -> "Dispatch Codex investigation (MCP, async)";
-    "Dispatch Codex investigation (MCP, async)" -> "Claude investigates + writes spec";
-    "Claude investigates + writes spec" -> "Task too vague?";
+    "Resolve task_id, create dir" -> "Dispatch peer investigation";
+    "Dispatch peer investigation" -> "Host investigates + writes spec";
+    "Host investigates + writes spec" -> "Task too vague?";
     "Task too vague?" -> "Ask user for clarification" [label="yes"];
-    "Ask user for clarification" -> "Claude investigates + writes spec";
-    "Task too vague?" -> "Read Codex spec" [label="no"];
-    "Read Codex spec" -> "Diff Claude spec vs Codex spec";
-    "Diff Claude spec vs Codex spec" -> "Critical gap found?";
-    "Critical gap found?" -> "Claude investigates + writes spec" [label="yes, re-investigate"];
+    "Ask user for clarification" -> "Host investigates + writes spec";
+    "Task too vague?" -> "Read peer spec" [label="no"];
+    "Read peer spec" -> "Diff host spec vs peer spec";
+    "Diff host spec vs peer spec" -> "Critical gap found?";
+    "Critical gap found?" -> "Host investigates + writes spec" [label="yes, re-investigate"];
     "Critical gap found?" -> "Resolve divergences by code evidence" [label="no"];
-    "Resolve divergences by code evidence" -> "Debate with Codex (max 2 rounds)" [label="disagree"];
+    "Resolve divergences by code evidence" -> "Debate with peer agent (max 2 rounds)" [label="disagree"];
     "Resolve divergences by code evidence" -> "Escalated items?" [label="resolved"];
-    "Debate with Codex (max 2 rounds)" -> "Escalated items?";
+    "Debate with peer agent (max 2 rounds)" -> "Escalated items?";
     "Escalated items?" -> "Ask user to resolve" [label="yes"];
     "Ask user to resolve" -> "Write spec.md (merged)";
     "Escalated items?" -> "Write spec.md (merged)" [label="no"];
     "Write spec.md (merged)" -> "Write plan.md (executable tasks)";
     "Write plan.md (executable tasks)" -> "Self-review plan against spec";
-    "Self-review plan against spec" -> "Codex execution drill (MCP)";
-    "Codex execution drill (MCP)" -> "All steps CLEAR?";
+    "Self-review plan against spec" -> "Peer execution drill";
+    "Peer execution drill" -> "All steps CLEAR?";
     "All steps CLEAR?" -> "Ready for execution" [label="yes"];
     "All steps CLEAR?" -> "Revise plan for unclear steps" [label="unclear, max 1 loop"];
-    "Revise plan for unclear steps" -> "Codex execution drill (MCP)";
+    "Revise plan for unclear steps" -> "Peer execution drill";
     "All steps CLEAR?" -> "STOP: BLOCKED — unresolvable without user" [label="blocked"];
 }
 ```
@@ -94,19 +109,19 @@ digraph plan {
 
 | Phase | Who | Why |
 |-------|-----|-----|
-| Investigation (read code, trace paths) | **You + Codex (parallel)** | Independent investigation catches different blind spots |
-| Write spec (Claude's version) | **You** | Investigation context must not be lost |
-| Write spec (Codex's version) | **Codex** (via MCP) | Independence requires separation |
+| Investigation (read code, trace paths) | **Host + peer (parallel)** | Independent investigation catches different blind spots |
+| Write spec (host version) | **You** | Investigation context must not be lost |
+| Write spec (peer version) | **Peer agent** | Independence requires separation |
 | Diff & verify divergences | **You** | You have the context + code access to judge |
 | Write plan.md | **You** | Spec context must flow into plan |
-| Execution Drill | **Codex** (via MCP, new session) | Fresh eyes test implementability |
+| Execution Drill | **Peer agent** (fresh session) | Fresh eyes test implementability |
 
 ## Hard Rules
 
 1. You read all code you reference. No citing files you haven't opened.
-2. Codex never sees your spec when producing its own. Independence is sacred.
-3. Codex receives the same investigation instructions you follow.
-4. Divergences are resolved by code evidence. When evidence alone isn't conclusive, debate with Codex (max 2 rounds, both sides cite file:line).
+2. The peer agent never sees your spec when producing its own. Independence is sacred.
+3. The peer agent receives the same investigation instructions you follow.
+4. Divergences are resolved by code evidence. When evidence alone isn't conclusive, debate with the peer agent (max 2 rounds, both sides cite file:line).
 5. Disk artifacts are truth. Prior conversation is reference only.
 6. The execution drill must pass before any plan is marked ready.
 7. spec.md has no rigid template — sections scale to task complexity.
@@ -137,7 +152,7 @@ No artifact passes to the next phase without meeting its gate.
 1. If invoked by /ship:auto, the task_id is provided.
 2. If invoked standalone, generate `task_id` using the shared script:
    ```bash
-   TASK_ID=$(bash ${CLAUDE_PLUGIN_ROOT}/scripts/task-id.sh "<description>")
+   TASK_ID=$(bash "${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}/scripts/task-id.sh" "<description>")
    ```
 
 Artifacts go to `.ship/tasks/<task_id>/plan/`. The Write tool creates
@@ -158,8 +173,8 @@ If `SPEC_EXISTS`:
 - Your job narrows: investigate to validate the spec's claims, then
   produce only `plan.md`. You may append an `## Investigation` section
   to the existing spec if it lacks one, but preserve all existing sections.
-- Skip Codex parallel investigation — spec already exists and was
-  validated upstream. No `codex-spec.md` or `diff-report.md` produced.
+- Skip peer parallel investigation — spec already exists and was
+  validated upstream. No `peer-spec.md` or `diff-report.md` produced.
 - Skip to Phase 5 (Write Plan) with the spec as your starting context.
 - The execution drill (Phase 6) still runs — plan.md always gets validated.
 
@@ -170,23 +185,24 @@ spec.md, Phase 4 resolves divergences, then Phase 5 writes plan.md.
 
 **This is the most important phase. Do not rush it.**
 
-### Step A: Dispatch Codex
+### Step A: Dispatch peer investigation
 
-Kick off Codex MCP **before** you start investigating. Codex works
-in parallel while you read code.
+Kick off the peer investigation **before** you start investigating. The
+peer works in parallel while you read code.
 
-Read `independent-investigator.md` for the MCP call parameters and
+Read `independent-investigator.md` for the dispatch pattern and
 prompt template. Fill in the task description, task_id, and repo root.
-Save the returned `threadId` as `INVESTIGATION_THREAD_ID` — needed
-for debate in Phase 4.
+Dispatch the resolved peer runtime and save the returned thread or
+session id as `INVESTIGATION_THREAD_ID` when the runtime provides one
+— needed for debate in Phase 4.
 
-#### When Codex is unavailable
+#### When the peer agent is unavailable
 
-If MCP call fails, self-produce the second spec:
+If peer dispatch fails, self-produce the second spec:
 1. Run a second-pass review of your spec using only: placeholder scan,
    contradiction scan, coverage scan, ambiguity scan
 2. Search for code paths, callers, or consumers you did not trace
-3. Write `codex-spec.md` with any changed conclusions or additions
+3. Write `peer-spec.md` with any changed conclusions or additions
 4. Add a warning: `WARNING: Second spec was self-generated, not independent`
 
 ### Step B: Your investigation
@@ -275,22 +291,25 @@ Fix issues inline. No need to re-review.
 
 ## Phase 4: Diff & Verify
 
-Read `codex-spec.md` (written by the Codex MCP call dispatched in Phase 2).
+Read `peer-spec.md` (written by the peer investigation dispatched in Phase 2).
 Compare it against your `spec.md`.
 
 ### For each divergence point:
 
-1. **Identify the divergence** — what does your spec say vs Codex's?
+1. **Identify the divergence** — what does your spec say vs the peer spec?
 2. **Verify against code** — read the actual code to determine which
    is correct. Do NOT resolve by reasoning about which "sounds better."
-3. **If still disagree — debate with Codex.** Use `mcp__codex__codex-reply`
-   with `threadId: INVESTIGATION_THREAD_ID`. Present your code evidence
-   and ask Codex to present its counter-evidence. Maximum 2 debate rounds.
-   Both sides must cite file:line references — no abstract arguments.
+3. **If still disagree — debate with the peer agent.** Continue on the
+   same peer thread or session when possible using that runtime's
+   follow-up mechanism. Present your code evidence and ask the peer to
+   present counter-evidence. If the runtime cannot continue the same
+   session, dispatch a fresh peer session with the prior evidence quoted
+   verbatim. Maximum 2 debate rounds. Both sides must cite file:line
+   references.
 4. **Assign disposition after debate:**
    - **patched** → Your spec updated based on evidence. Show the diff.
-   - **proven-false** → Codex's claim is wrong. Cite the code evidence.
-   - **conceded** → Codex convinced you with code evidence. Update spec.
+   - **proven-false** → The peer claim is wrong. Cite the code evidence.
+   - **conceded** → The peer convinced you with code evidence. Update spec.
    - **escalated** → 2 debate rounds exhausted, still unresolved. Needs user input.
 
 ### Record in diff-report.md
@@ -311,7 +330,7 @@ code evidence was cited during debate, and the final disposition
     `user-resolved` and what they decided. Update spec.md accordingly.
   - **/ship:auto mode:** do NOT ask user. Treat escalated items as BLOCKED
     and return. Auto owns the only user-approval gate.
-- If diff reveals a critical investigation gap (e.g., Codex found
+- If diff reveals a critical investigation gap (e.g., the peer found
   important code you missed entirely), go back to Phase 2 for
   targeted re-investigation. Maximum 1 re-investigation loop.
 
@@ -381,34 +400,36 @@ After writing, check against spec.md:
 
 Fix issues inline.
 
-## Phase 6: Execution Drill (via MCP)
+## Phase 6: Execution Drill
 
-The final gate. Give Codex the plan and ask it to validate every step
-is implementable.
+The final gate. Give the plan to the peer agent and ask it to validate
+every step is implementable.
 
-Read `execution-drill.md` for the MCP call parameters, role, and
-prompt template. Use a **new** MCP session, not the investigation thread.
-Save the returned `threadId` as `DRILL_THREAD_ID` — needed for
-revision reruns.
+Read `execution-drill.md` for the dispatch pattern, role, and
+prompt template. Use a **new** peer session, not the investigation
+thread. Save the returned thread or session id as `DRILL_THREAD_ID`
+when the runtime provides one — needed for revision reruns.
 
-#### When Codex is unavailable
+#### When the peer agent is unavailable
 
-If MCP call fails, dispatch a fresh Agent to perform the drill instead.
-The Agent gets the same prompt from `execution-drill.md` — it reads
-spec.md and plan.md with no prior context, providing independent review.
-Add a warning to the output: `WARNING: Drill was Agent-performed, not Codex`
+If peer dispatch fails, dispatch a fresh fallback Agent to perform the
+drill instead. The Agent gets the same prompt from `execution-drill.md`
+— it reads spec.md and plan.md with no prior context, providing the
+best available independent review. Add a warning:
+`WARNING: Drill was fallback-Agent-performed, not peer-agent`
 
 ### After the drill:
 
 - **All CLEAR** → Plan is ready for execution.
 - **UNCLEAR items** → Revise plan.md to make each step unambiguous.
   Then re-run ONLY the unclear steps:
-  - If drill was Codex: use `mcp__codex__codex-reply` with
-    `threadId: DRILL_THREAD_ID` and prompt: "Tasks N, M were revised.
-    Re-read plan.md and re-evaluate ONLY those tasks using the same
-    criteria. Report CLEAR/UNCLEAR/BLOCKED."
-  - If drill was Agent fallback: dispatch a fresh Agent with the same
+  - If the peer runtime supports continuation, continue on
+    `DRILL_THREAD_ID` with: "Tasks N, M were revised. Re-read plan.md
+    and re-evaluate ONLY those tasks using the same criteria. Report
+    CLEAR/UNCLEAR/BLOCKED."
+  - Otherwise re-dispatch the peer agent with the same
     `execution-drill.md` prompt scoped to the revised tasks only.
+  - If peer dispatch is unavailable, use the same fallback-Agent pattern.
   Maximum 1 revision loop.
 - **BLOCKED items** → If resolvable by investigation, investigate and
   fix. If not, escalate to user or mark plan as `blocked`.
@@ -421,9 +442,9 @@ Add a warning to the output: `WARNING: Drill was Agent-performed, not Codex`
 .ship/tasks/<task_id>/
   plan/
     spec.md          — final merged spec (flexible sections, brainstorming style)
-    codex-spec.md    — Codex's independent spec (for diff comparison)
+    peer-spec.md     — peer agent's independent spec (for diff comparison)
     plan.md          — how to build it (TDD tasks, writing-plans style)
-    diff-report.md   — Claude spec vs Codex spec divergences and resolutions
+    diff-report.md   — host spec vs peer spec divergences and resolutions
 ```
 
 ## Timeouts
@@ -436,8 +457,8 @@ Add a warning to the output: `WARNING: Drill was Agent-performed, not Codex`
 
 | Error | Action |
 |-------|--------|
-| Codex MCP unavailable | Self-produce second spec + Agent-drill with warning |
-| Codex output unparseable | Retry once with format reminder, then fall back to Agent drill |
+| Peer agent unavailable | Self-produce second spec + fallback drill with warning |
+| Peer output unparseable | Retry once with format reminder, then fall back to fallback drill |
 | Timeout | Abort, preserve artifacts, summarize honestly |
 | Re-investigation needed | Maximum 1 loop back to Phase 2 |
 | Drill revision needed | Maximum 1 revision loop |
@@ -450,8 +471,8 @@ Add a warning to the output: `WARNING: Drill was Agent-performed, not Codex`
 - Timeout → preserve artifacts, summarize honestly
 
 ### Never stop for
-- Codex unavailable (self-produce second spec with warning)
-- Codex output parse failure (retry once, then Agent fallback)
+- Peer unavailable (self-produce second spec with warning)
+- Peer output parse failure (retry once, then fallback Agent)
 
 ### Detecting invocation mode
 
@@ -498,7 +519,7 @@ UNRESOLVED: <escalated items from diff or drill>
 RECOMMENDATION: <what the user should do next>
 ```
 
-<Bad>
+## Red Flag
 - Delegating investigation to a sub-agent (you must read the code yourself)
 - Writing plan.md with vague steps ("update the handler", "add tests")
 - Writing plan.md with placeholders (TBD, TODO, "similar to Task N")
@@ -508,4 +529,3 @@ RECOMMENDATION: <what the user should do next>
 - Changing a value without grepping tests that assert the old value
 - Marking plan ready when drill has BLOCKED items
 - Skipping the drill because "the plan looks solid"
-</Bad>
