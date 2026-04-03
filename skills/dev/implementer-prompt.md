@@ -1,8 +1,15 @@
-# Implementer — Codex Prompt
+# Implementer — Peer Agent Prompt
 
-Used in Phase 2 Step A of `/ship:dev`. Codex implements one story.
+Used in Phase 2 Step A of `/ship:dev`. The peer agent implements one story.
 
-## MCP Call
+## Dispatch
+
+Resolve the peer runtime before dispatching:
+
+- Preferred: use the non-host provider.
+- Fallback: use a fresh same-provider session and note weaker independence.
+
+If the peer runtime is Codex, use:
 
 ```
 mcp__codex__codex({
@@ -10,6 +17,12 @@ mcp__codex__codex({
   approval-policy: "never",
   cwd: <repo root>
 })
+```
+
+If the peer runtime is Claude, use:
+
+```bash
+claude -p --permission-mode bypassPermissions "<prompt below, with all placeholders filled>"
 ```
 
 ## Prompt

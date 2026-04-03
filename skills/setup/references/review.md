@@ -67,7 +67,7 @@ jobs:
         run: |
           git fetch origin "${{ github.base_ref }}"
           git diff "origin/${{ github.base_ref }}...HEAD" > pr.diff
-          claude -p "Review this pull request diff for bugs, regressions, security issues, and missing tests. Respond with actionable review comments only." < pr.diff
+          claude -p --permission-mode bypassPermissions "Review this pull request diff for bugs, regressions, security issues, and missing tests. Respond with actionable review comments only." < pr.diff
 ```
 
 Codex workflow example:

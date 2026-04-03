@@ -1,7 +1,8 @@
-# Reviewer — Claude Agent Prompt
+# Reviewer — Fresh Independent Reviewer Prompt
 
-Used in Phase 2 Step B of `/ship:dev`. Fresh Claude Agent reviews
-each story independently.
+Used in Phase 2 Step B of `/ship:dev`. A fresh reviewer session reviews
+each story independently. Prefer a reviewer runtime that did not
+perform implementation; when possible, use the host runtime.
 
 ## Dispatch
 

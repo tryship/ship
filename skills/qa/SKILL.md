@@ -18,7 +18,8 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=qa source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
+SHIP_SKILL_NAME=qa source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -178,7 +179,7 @@ When invoked with `--recheck`:
 - Individual criterion failures (record and continue)
 - A single service failing to start (test what you can)
 
-<Bad>
+## Red Flag
 - Reading review.md or verify.md (breaks independence)
 - Reading plan.md (biases what you test)
 - Skipping testing because "tests passed in verify"
@@ -186,4 +187,3 @@ When invoked with `--recheck`:
 - Leaving services or containers running after completion
 - Skipping exploratory testing because "all spec criteria passed"
 - Running full test suite when the diff only touches one file
-</Bad>

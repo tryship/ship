@@ -1,10 +1,17 @@
-# Independent Investigator — Codex Prompt
+# Independent Investigator — Peer Agent Prompt
 
-Used in Phase 2 of `/ship:design`. Codex independently investigates the
-codebase and produces its own spec. Dispatched **before** Claude starts
-investigating — runs in parallel.
+Used in Phase 2 of `/ship:design`. The peer agent independently
+investigates the codebase and produces its own spec. Dispatch it
+**before** the host starts investigating so both runs stay independent.
 
-## MCP Call
+## Dispatch
+
+Resolve the peer runtime before dispatching:
+
+- Preferred: use the non-host provider.
+- Fallback: use a fresh same-provider session and note weaker independence.
+
+If the peer runtime is Codex, use:
 
 ```
 mcp__codex__codex({
@@ -12,6 +19,12 @@ mcp__codex__codex({
   approval-policy: "never",
   cwd: <repo root>
 })
+```
+
+If the peer runtime is Claude, use:
+
+```bash
+claude -p --permission-mode bypassPermissions "<prompt below, with <task description> and <task_id> filled in>"
 ```
 
 ## Prompt
@@ -106,5 +119,5 @@ read. No speculating about code you haven't opened.
 
 ## Output
 
-Write your spec to: .ship/tasks/<task_id>/plan/codex-spec.md
+Write your spec to: .ship/tasks/<task_id>/plan/peer-spec.md
 ```

@@ -1,7 +1,7 @@
 ---
 name: dev
-version: 0.3.0
-description: Execute implementation stories from a plan. Codex implements each story via MCP, Claude reviews spec compliance and code correctness. Stories run sequentially; review must pass before the next story starts.
+version: 0.4.0
+description: Execute implementation stories from a plan. The peer agent implements each story, a fresh independent reviewer checks it, and stories run sequentially until review passes.
 allowed-tools:
   - Bash
   - Read
@@ -18,7 +18,8 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=dev source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
+SHIP_SKILL_NAME=dev source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -29,10 +30,24 @@ If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
 # Ship: Implement
 
-Execute implementation stories from a plan. Each story: Codex implements
-via MCP, Claude reviews spec compliance + code correctness, targeted
-fix on failure. Stories run sequentially; review must pass before the
-next story starts.
+Execute implementation stories from a plan. Each story: the peer agent
+implements, a fresh independent reviewer checks spec compliance + code
+correctness, targeted fixes happen on failure, and stories run
+sequentially until review passes.
+
+## Runtime Resolution
+
+- **Host agent**: the provider currently running this skill
+- **Peer agent**: the non-host provider when available; otherwise a
+  fresh same-provider session
+
+Resolve once at the start:
+- Claude host → Codex is the peer implementer; Claude runs the fresh reviewer
+- Codex host → Claude is the peer implementer; Codex runs the fresh reviewer
+- If Claude is the peer, dispatch with `claude -p --permission-mode bypassPermissions`.
+- If Codex is the peer, dispatch with `mcp__codex__codex`.
+- If only one provider is available, use a fresh same-provider peer
+  session and note that independence is weaker.
 
 ## Principal Contradiction
 
@@ -40,19 +55,19 @@ next story starts.
 
 Implementation fails not because code "looks wrong" but because it
 behaves differently from what the spec requires. The adversary is the
-gap between what was written and what was intended. Codex generates,
-Claude discriminates — different models, different blind spots.
+gap between what was written and what was intended. One agent
+implements, another reviews — different sessions, different blind spots.
 
 ## Core Principle
 
 ```
-CODEX GENERATES, CLAUDE DISCRIMINATES.
+PEER IMPLEMENTS. FRESH REVIEWER DISCRIMINATES.
 EVERY FINDING NEEDS FILE:LINE + EVIDENCE.
 ```
 
-Separation of concerns: Codex implements with only the story context
-it needs. Claude reviews without having watched the implementation
-happen — no accumulated leniency, no rationalization.
+Separation of concerns: the peer implementer works with only the story
+context it needs. The reviewer evaluates without having watched the
+implementation happen — no accumulated leniency, no rationalization.
 
 ## Process Flow
 
@@ -64,12 +79,12 @@ digraph implement {
     "Read spec + plan, detect tooling" [shape=box];
     "Stories remaining?" [shape=diamond];
     "Record start SHA" [shape=box];
-    "Codex implements story (MCP)" [shape=box];
+    "Peer implements story" [shape=box];
     "Commits exist?" [shape=diamond];
-    "Claude reviews (fresh Agent)" [shape=box];
+    "Fresh independent reviewer" [shape=box];
     "Verdict?" [shape=diamond];
     "Record context, next story" [shape=box];
-    "Codex targeted fix (MCP)" [shape=box];
+    "Peer targeted fix" [shape=box];
     "Fix rounds exhausted?" [shape=diamond];
     "Run full test suite" [shape=box];
     "Tests pass?" [shape=diamond];
@@ -80,20 +95,20 @@ digraph implement {
     "Read spec + plan, detect tooling" -> "Stories remaining?";
     "Stories remaining?" -> "Record start SHA" [label="yes"];
     "Stories remaining?" -> "Run full test suite" [label="no"];
-    "Record start SHA" -> "Codex implements story (MCP)";
-    "Codex implements story (MCP)" -> "Commits exist?";
-    "Commits exist?" -> "Claude reviews (fresh Agent)" [label="yes"];
+    "Record start SHA" -> "Peer implements story";
+    "Peer implements story" -> "Commits exist?";
+    "Commits exist?" -> "Fresh independent reviewer" [label="yes"];
     "Commits exist?" -> "STOP: BLOCKED — story failed after max retries" [label="no, claimed done"];
-    "Claude reviews (fresh Agent)" -> "Verdict?";
+    "Fresh independent reviewer" -> "Verdict?";
     "Verdict?" -> "Record context, next story" [label="PASS"];
-    "Verdict?" -> "Codex targeted fix (MCP)" [label="FAIL"];
-    "Codex targeted fix (MCP)" -> "Fix rounds exhausted?";
-    "Fix rounds exhausted?" -> "Claude reviews (fresh Agent)" [label="no, re-review"];
+    "Verdict?" -> "Peer targeted fix" [label="FAIL"];
+    "Peer targeted fix" -> "Fix rounds exhausted?";
+    "Fix rounds exhausted?" -> "Fresh independent reviewer" [label="no, re-review"];
     "Fix rounds exhausted?" -> "STOP: BLOCKED — story failed after max retries" [label="yes, max 2"];
     "Record context, next story" -> "Stories remaining?";
     "Run full test suite" -> "Tests pass?";
     "Tests pass?" -> "Done" [label="yes"];
-    "Tests pass?" -> "Codex targeted fix (MCP)" [label="no, regression"];
+    "Tests pass?" -> "Peer targeted fix" [label="no, regression"];
 }
 ```
 
@@ -101,21 +116,22 @@ digraph implement {
 
 | Role | Who | Why |
 |------|-----|-----|
-| Orchestrator | **You (Claude)** | Coordinate stories, never write code |
-| Implementor | **Codex** (via MCP) | Fresh session per story, code generation |
-| Reviewer | **Claude Agent** (fresh per review) | Different model = different blind spots |
-| Targeted fixer | **Codex** (via MCP) | Surgical fixes, not re-implementation |
+| Orchestrator | **You (host agent)** | Coordinate stories, never write code |
+| Implementor | **Peer agent** | Fresh session per story, code generation |
+| Reviewer | **Fresh independent reviewer** | Independent session, ideally from the other provider |
+| Targeted fixer | **Peer agent** | Surgical fixes, not re-implementation |
 
-**Why different models for implement vs review:** This is the GAN
-architecture — generator and discriminator must have different
-cognitive biases to catch each other's blind spots. Same-model
-review degrades to self-review.
+**Why separate implementation and review:** the review needs fresh eyes.
+Cross-provider review is preferred because it changes model biases as
+well as session context. When only one provider is available, a fresh
+same-provider session is still better than self-review inside the
+implementation thread.
 
 ## Hard Rules
 
 1. You never write code, read diffs for review, or run tests yourself. Coordination metadata (git rev-parse, git diff --name-only, git status) is allowed.
-2. Codex implements via MCP, not CLI. One story per session.
-3. Claude Agent reviews fresh each time — no accumulated context.
+2. The peer agent implements one story per session.
+3. The reviewer is fresh each time — no accumulated context.
 4. Every review finding must include file:line + reproducible evidence.
 5. Stories run sequentially. No parallelism. No skipping review.
 6. FAIL means targeted fix, not full re-implementation.
@@ -171,9 +187,9 @@ No story advances without passing its gate.
 ```
 For each story i/N:
   1. Record STORY_START_SHA = current HEAD
-  2. Codex implements (MCP) → commit(s)
+  2. Peer agent implements → commit(s)
   3. Record STORY_HEAD_SHA = current HEAD
-  4. ⛔ MANDATORY: Dispatch fresh Claude Agent reviewer → verdict
+  4. ⛔ MANDATORY: Dispatch fresh independent reviewer → verdict
      PASS → step 5
      PASS_WITH_CONCERNS → record concerns → step 5
      FAIL → targeted fix (max 2 rounds) → re-review
@@ -188,20 +204,14 @@ Record `STORY_START_SHA`:
 git rev-parse HEAD
 ```
 
-Dispatch Codex via MCP using the prompt template in `implementer-prompt.md`.
-Fill all placeholders (story text, acceptance criteria, prior stories,
-CODE_CONDUCT, TEST_CMD) before dispatch.
+Dispatch the peer implementer using the prompt template in
+`implementer-prompt.md`. Fill all placeholders (story text, acceptance
+criteria, prior stories, CODE_CONDUCT, TEST_CMD) before dispatch.
+Use the dispatch pattern in `implementer-prompt.md` for the resolved
+peer runtime.
 
-```
-mcp__codex__codex({
-  prompt: <filled implementer prompt>,
-  approval-policy: "never",
-  sandbox: "danger-full-access",
-  cwd: <repo root>
-})
-```
-
-After Codex returns, save the `threadId` for potential targeted fixes.
+After the peer implementer returns, save the thread or session id for
+potential targeted fixes.
 1. Record `STORY_HEAD_SHA=$(git rev-parse HEAD)`
 2. If `STORY_HEAD_SHA == STORY_START_SHA` and status is DONE → treat as
    BLOCKED (claimed done but made no commits).
@@ -211,7 +221,7 @@ After Codex returns, save the `threadId` for potential targeted fixes.
 **⛔ MANDATORY GATE — DO NOT ADVANCE TO NEXT STORY**
 
 Implementation complete does NOT mean story complete.
-You MUST now dispatch a fresh Claude Agent reviewer (Step B).
+You MUST now dispatch a fresh independent reviewer (Step B).
 A story is only complete when the reviewer returns PASS.
 
 ```
@@ -225,9 +235,9 @@ STOP. You are making a mistake.
 
 ### Step B: Review (MANDATORY)
 
-Dispatch a fresh Claude Agent using the prompt template in `reviewer-prompt.md`.
-Fill all placeholders (story number, SHAs, TEST_CMD, spec requirements,
-story text) before dispatch.
+Dispatch a fresh reviewer using the prompt template in
+`reviewer-prompt.md`. Fill all placeholders (story number, SHAs,
+TEST_CMD, spec requirements, story text) before dispatch.
 
 After Reviewer returns, read the verdict:
 - **PASS** → proceed to Step D.
@@ -248,25 +258,26 @@ git status --short
 
 If uncommitted partial changes exist, stash or discard (warn the user).
 
-Continue on the **same Codex thread** from Step A using `codex-reply`.
-The implementer already has full context of what it built.
+Continue on the **same peer implementation thread/session** from Step A
+when possible. The implementer already has full context of what it built.
 
 ```
-mcp__codex__codex-reply({
-  threadId: <threadId from Step A>,
-  prompt: "A code reviewer found these issues. Fix them.
+A code reviewer found these issues. Fix them.
 
-    ## Issues to Fix
-    <Reviewer's FAIL findings, verbatim>
+## Issues to Fix
+<Reviewer's FAIL findings, verbatim>
 
-    ## Rules
-    - Fix ONLY the issues listed above. Do not refactor or improve other code.
-    - Run the full test suite after fixes: <TEST_CMD>
-    - If a fix requires a new test, add it.
-    - Commit using Conventional Commits.
-    Do NOT re-implement the story. Make surgical fixes."
-})
+## Rules
+- Fix ONLY the issues listed above. Do not refactor or improve other code.
+- Run the full test suite after fixes: <TEST_CMD>
+- If a fix requires a new test, add it.
+- Commit using Conventional Commits.
+- Do NOT re-implement the story. Make surgical fixes.
 ```
+
+If the peer runtime cannot continue the original thread/session,
+re-dispatch a fresh peer session with the original story prompt plus
+the targeted-fix prompt above.
 
 After fix commits:
 1. Update `STORY_HEAD_SHA=$(git rev-parse HEAD)`
@@ -289,18 +300,15 @@ in the "Prior Stories Completed" section.
 
 ## Phase 3: Cross-Story Regression
 
-After all stories pass, dispatch Codex MCP to run the full test suite:
+After all stories pass, dispatch the peer implementer to run the full
+test suite:
 
 ```
-mcp__codex__codex({
-  prompt: "Run the full test suite: <TEST_CMD>. Report PASS or FAIL with output.",
-  approval-policy: "never",
-  sandbox: "danger-full-access",
-  cwd: <repo root>
-})
+Run the full test suite: <TEST_CMD>. Report PASS or FAIL with output.
 ```
 
-If tests fail, dispatch a targeted fix via Codex MCP and re-verify.
+If tests fail, dispatch a targeted fix via the peer implementer and
+re-verify.
 
 ---
 
@@ -335,9 +343,9 @@ Use `[Implement]` prefix for all status output:
 | Reviewer FAIL, rounds < 2 | Targeted fix → fresh re-review |
 | Reviewer FAIL, rounds exhausted | Escalate BLOCKED with findings |
 | Reviewer malformed output | Re-dispatch fresh Reviewer once, then FAIL |
-| Codex BLOCKED or NEEDS_CONTEXT | Escalate to caller |
-| Codex DONE_WITH_CONCERNS | Log concerns, proceed to review |
-| Codex crash (exit != 0) | Check HEAD + working tree; stash if dirty; retry once; then BLOCKED |
+| Peer implementer BLOCKED or NEEDS_CONTEXT | Escalate to caller |
+| Peer implementer DONE_WITH_CONCERNS | Log concerns, proceed to review |
+| Peer implementer crash (exit != 0) | Check HEAD + working tree; stash if dirty; retry once; then BLOCKED |
 | Agent dispatch failure | Retry once, then BLOCKED |
 
 ## Example Workflow
@@ -350,15 +358,15 @@ Use `[Implement]` prefix for all status output:
 [Implement] Story 1/3: recording start SHA...
   STORY_START_SHA = abc1234
 
-[Implement] Story 1/3: dispatching Codex via MCP...
-  mcp__codex__codex({ prompt: <filled implementer-prompt.md>, ... })
-  Codex returns: DONE (threadId: thread_abc)
+[Implement] Story 1/3: dispatching peer implementer...
+  <peer dispatch with implementer-prompt.md>
+  Peer returns: DONE (thread/session id: thread_abc)
 
 [Implement] Story 1/3: checking commits...
   STORY_HEAD_SHA = def5678
   abc1234 != def5678 → commits exist ✓  (GATE PASSED)
 
-[Implement] Story 1/3: dispatching fresh Claude Agent reviewer...
+[Implement] Story 1/3: dispatching fresh independent reviewer...
   Agent({ prompt: <filled reviewer-prompt.md> })
   Reviewer returns: PASS
 
@@ -373,29 +381,26 @@ Use `[Implement]` prefix for all status output:
 [Implement] Story 2/3: recording start SHA...
   STORY_START_SHA = def5678
 
-[Implement] Story 2/3: dispatching Codex via MCP...
-  Codex returns: DONE (threadId: thread_def)
+[Implement] Story 2/3: dispatching peer implementer...
+  Peer returns: DONE (thread/session id: thread_def)
 
 [Implement] Story 2/3: checking commits...
   STORY_HEAD_SHA = ghi9012
   def5678 != ghi9012 → commits exist ✓  (GATE PASSED)
 
-[Implement] Story 2/3: dispatching fresh Claude Agent reviewer...
+[Implement] Story 2/3: dispatching fresh independent reviewer...
   Reviewer returns: FAIL
     - Missing input validation on POST /users (spec requires email format check)
     - No error response for duplicate usernames
 
 [Implement] Story 2/3: FAIL — targeted fix (round 1/2)...
-  mcp__codex__codex-reply({
-    threadId: thread_def,
-    prompt: "Fix these issues: <reviewer findings verbatim>..."
-  })
-  Codex applies fix, commits.
+  <continue on peer thread/session with targeted-fix prompt>
+  Peer applies fix, commits.
 
 [Implement] Story 2/3: fix applied. Updating SHA...
   STORY_HEAD_SHA = jkl3456
 
-[Implement] Story 2/3: re-reviewing with FRESH Claude Agent...
+[Implement] Story 2/3: re-reviewing with FRESH independent reviewer...
   Reviewer returns: PASS
 
 [Implement] Story 2/3: PASS (2 rounds). Recording context.
@@ -405,8 +410,8 @@ Use `[Implement]` prefix for all status output:
 [Implement] Story 3/3: recording start SHA...
   STORY_START_SHA = jkl3456
 
-[Implement] Story 3/3: dispatching Codex via MCP...
-  Codex returns: DONE_WITH_CONCERNS ("jwt secret should be env var, currently hardcoded in test fixtures")
+[Implement] Story 3/3: dispatching peer implementer...
+  Peer returns: DONE_WITH_CONCERNS ("jwt secret should be env var, currently hardcoded in test fixtures")
 
 [Implement] Story 3/3: checking commits...
   STORY_HEAD_SHA = mno7890
@@ -414,7 +419,7 @@ Use `[Implement]` prefix for all status output:
 
 [Implement] Story 3/3: DONE_WITH_CONCERNS — logging concern, proceeding to review...
 
-[Implement] Story 3/3: dispatching fresh Claude Agent reviewer...
+[Implement] Story 3/3: dispatching fresh independent reviewer...
   Reviewer returns: PASS_WITH_CONCERNS (test fixtures use hardcoded secret)
 
 [Implement] Story 3/3: PASS_WITH_CONCERNS. Appending to concerns.md.
@@ -422,8 +427,8 @@ Use `[Implement]` prefix for all status output:
 ── Phase 3: Cross-Story Regression ──────────────────────
 
 [Implement] All stories complete. Running full test suite...
-  mcp__codex__codex({ prompt: "Run: npm test. Report PASS or FAIL." })
-  Codex returns: PASS (47 tests, 0 failures)
+  <peer dispatch: run npm test and report PASS or FAIL>
+  Peer returns: PASS (47 tests, 0 failures)
 
 [Implement] DONE_WITH_CONCERNS — 3/3 stories implemented, reviewed, committed. 1 concern recorded.
 ```
@@ -435,7 +440,7 @@ Use `[Implement]` prefix for all status output:
 | **Never skip commit check** | Every story shows SHA comparison before review |
 | **Never skip review** | Every story dispatches a fresh Agent reviewer |
 | **Fresh reviewer each time** | Re-review after fix uses a NEW Agent, not the same one |
-| **Targeted fix, not re-implement** | FAIL → `codex-reply` on same thread with surgical instructions |
+| **Targeted fix, not re-implement** | FAIL → continue on same peer thread/session with surgical instructions |
 | **Sequential stories** | Story 2 starts only after Story 1 is PASS |
 | **Gate enforcement** | Each gate check shown explicitly with ✓ |
 | **Concerns are logged, not ignored** | DONE_WITH_CONCERNS → recorded → review still happens |
@@ -449,21 +454,20 @@ Report one of:
 - **BLOCKED** — a story failed after max retries.
 - **NEEDS_CONTEXT** — missing information needed from user.
 
-<Bad>
+## Red Flag
 - **ADVANCING TO NEXT STORY WITHOUT DISPATCHING A REVIEWER AGENT** ← #1 failure mode
-- Treating Codex returning DONE as "story complete" — it is NOT, review is still required
-- Skipping review because "Codex's self-review looked good"
+- Treating peer implementer returning DONE as "story complete" — it is NOT, review is still required
+- Skipping review because "the implementer's self-review looked good"
 - Skipping review because "the implementation looks straightforward"
 - Skipping review because "we're running low on context"
 - Starting the next story before the current story's review returns PASS
-- Writing code yourself instead of dispatching Codex
+- Writing code yourself instead of dispatching the peer implementer
 - Reading the diff yourself instead of dispatching a fresh Agent reviewer
-- Running tests yourself instead of letting Codex/reviewer handle it
-- Falling back to "I'll just do it myself" when Codex is slow — report BLOCKED
+- Running tests yourself instead of letting the peer implementer/reviewer handle it
+- Falling back to "I'll just do it myself" when the peer is slow — report BLOCKED
 - Running multiple implementation dispatches in parallel
 - Doing a full re-implementation on FAIL instead of a targeted fix
-- Letting Codex modify tests to make them pass instead of fixing code
+- Letting the peer implementer modify tests to make them pass instead of fixing code
 - Accepting "close enough" on spec checklist — any FAIL item is FAIL
 - Omitting prior stories context from the implementor prompt
 - Retrying after crash without checking HEAD for partial changes
-</Bad>

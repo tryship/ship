@@ -19,7 +19,8 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=refactor source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
+SHIP_SKILL_NAME=refactor source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -213,7 +214,7 @@ If structural: also report which smells were deferred (not addressed in this inv
 - Doing surgical cleanup as the last step of structural refactoring
 </Good>
 
-<Bad>
+## Red Flag
 - Moving code between files without simplifying anything — that's reorganization, not refactoring
 - Writing a 100-line spec for a single file cleanup
 - Diagnosing without reading the code (citing comments about other files as evidence)
@@ -222,4 +223,3 @@ If structural: also report which smells were deferred (not addressed in this inv
 - Forcing a change after verification fails twice
 - Architectural redesign disguised as refactoring
 - Claiming "no tests" without checking for test files
-</Bad>

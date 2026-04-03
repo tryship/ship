@@ -17,7 +17,8 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=auto source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
+SHIP_SKILL_NAME=auto source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -58,7 +59,7 @@ digraph auto {
     "Simplify" [shape=box];
     "Simplify broke tests?" [shape=diamond];
     "Handoff (/ship:handoff)" [shape=box];
-    "PR merge-ready" [shape=doublecircle];
+    "PR checks green" [shape=doublecircle];
 
     "Start" -> "Bootstrap";
     "Bootstrap" -> "Design (/ship:design)";
@@ -73,7 +74,7 @@ digraph auto {
     "Simplify" -> "Simplify broke tests?";
     "Simplify broke tests?" -> "Handoff (/ship:handoff)" [label="revert"];
     "Simplify broke tests?" -> "Handoff (/ship:handoff)" [label="clean"];
-    "Handoff (/ship:handoff)" -> "PR merge-ready";
+    "Handoff (/ship:handoff)" -> "PR checks green";
 }
 ```
 
@@ -87,7 +88,7 @@ digraph auto {
 | Code review | **/ship:review** — staff-engineer review of full diff |
 | QA | **/ship:qa** — independent testing against running app |
 | Simplify | **simplify** (standalone skill) — behavior-preserving cleanup |
-| Handoff | **/ship:handoff** — PR creation, CI loop, proof bundle |
+| Handoff | **/ship:handoff** — PR creation, GitHub check loop, and fix loop |
 
 ## Hard Rules
 
@@ -118,7 +119,7 @@ Read(".ship/ship-auto.local.md")
 
 Generate task ID:
 ```
-Bash("${CLAUDE_PLUGIN_ROOT}/scripts/task-id.sh '<description>'")
+Bash("${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}/scripts/task-id.sh '<description>'")
 ```
 Record as `TASK_ID`.
 
@@ -147,7 +148,7 @@ Write state file (via Bash):
 ---
 active: true
 task_id: <TASK_ID>
-session_id: ${CLAUDE_CODE_SESSION_ID}
+session_id: ${SHIP_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-${CODEX_SESSION_ID:-unknown}}}
 branch: <BRANCH>
 base_branch: <BASE_BRANCH>
 phase: design
@@ -347,12 +348,12 @@ Agent(prompt="Call Skill('handoff').
 
 | Response shape | Action |
 |---------------|--------|
-| Clearly indicates merge-ready and includes PR URL | done |
-| Clearly indicates failure or not ready | Re-dispatch handoff — it owns its own CI fix loop (max 2 rounds) |
+| Clearly indicates checks are green and includes PR URL | done |
+| Clearly indicates failure or not ready | Re-dispatch handoff — it owns its own CI fix loop (max 3 rounds) |
 
 **State update (DONE):** delete `.ship/ship-auto.local.md`.
 
-Output: `[Ship] PR merge-ready: <url>`
+Output: `[Ship] PR checks green: <url>`
 
 ---
 
@@ -489,11 +490,11 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('handoff'). base_branch: main ...")
 
   Agent returns:
-  PR #42 is merge-ready:
+  PR #42 checks are green:
   https://github.com/user/repo/pull/42
 
 [Ship] Deleting state file.
-[Ship] PR merge-ready: https://github.com/user/repo/pull/42
+[Ship] PR checks green: https://github.com/user/repo/pull/42
 ```
 
 ### What This Shows
@@ -507,9 +508,8 @@ Output: `[Ship] PR merge-ready: <url>`
 | **No code writes** | Orchestrator dispatches Agents for all code changes |
 | **Always ship** | Pipeline flows start to finish without stopping |
 
-<Bad>
+## Red Flag
 - Writing code yourself instead of delegating
 - Hardcoding `main` instead of using BASE_BRANCH
 - Giving up on a phase instead of fixing and retrying
 - Dispatching subagents in background
-</Bad>

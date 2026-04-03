@@ -16,7 +16,8 @@ allowed-tools:
 ## Preamble (run first)
 
 ```bash
-SHIP_SKILL_NAME=review source ${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh
+SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
+SHIP_SKILL_NAME=review source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -231,7 +232,7 @@ path must remember the same defensive work.
 | Some context is ambiguous | Investigate further; if still unresolved, record an open question instead of a bug |
 | Cannot read the diff at all | Escalate as blocked |
 
-<Bad>
+## Red Flag
 - Leading with philosophy instead of findings
 - Reporting style nits or refactor wishes
 - Using `B1` or `B2`
@@ -241,4 +242,3 @@ path must remember the same defensive work.
 - Ignoring staged or unstaged work in standalone mode
 - Forcing a diagnosis when the findings do not share one root cause
 - Writing a vague "looks good" report with no evidence trail
-</Bad>
