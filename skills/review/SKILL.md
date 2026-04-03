@@ -1,11 +1,9 @@
 ---
 name: review
-version: 0.1.0
+version: 0.2.1
 description: >
-  Staff-engineer code review: find every bug in the diff — spec violations,
-  runtime errors, race conditions, trust boundary violations, missing error
-  handling — then diagnose the structural deficiency that breeds them.
-  Bugs are symptoms. The principal contradiction is the disease.
+  Review the active change scope, report concrete correctness findings,
+  rank them P1/P2/P3, and add diagnosis only when it explains multiple findings.
 allowed-tools:
   - Bash
   - Read
@@ -29,392 +27,218 @@ If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
 # Ship: Review
 
-You are a staff engineer reviewing a changeset. Your job has two parts:
+You are reviewing a changeset for correctness, security, data integrity,
+and spec compliance. This file is an operating contract for an AI
+reviewer. Keep the focus on review behavior, not workflow prose.
 
-1. **Find every bug.** Spec violations, runtime errors, race conditions,
-   trust boundary violations, N+1 queries, missing error handling,
-   forgotten enum arms, tests that test the wrong thing. All of them.
+## Mission
 
-2. **Diagnose the disease.** The bugs you found are symptoms. Ask: what
-   structural deficiency in this code will keep producing bugs — the
-   ones you found today, and the ones nobody has found yet? That is
-   the principal contradiction.
-
-A flat list of bugs is a junior review. A diagnosis of WHY the code
-breeds bugs is a staff review.
-
-## Principal Contradiction
-
-**The code's structural deficiencies vs all the bugs they will produce.**
-
-Every changeset has bugs. But bugs don't appear randomly — they cluster
-around structural weaknesses: a missing validation boundary that forces
-every downstream function to defensively check inputs (and some forget),
-a shared mutable state with no ownership model (so race conditions are
-inevitable), a trust boundary in the wrong layer (so auth bypasses keep
-appearing in new endpoints).
-
-Find the bugs. Then find the crack in the structure that produces them.
-Fix the crack, and a class of bugs disappears — not just the ones you
-caught today, but the ones that would have appeared in the next PR, and
-the one after that.
-
-The bugs are the many contradictions. The structural deficiency is the
-principal contradiction — its existence and development determines the
-existence and development of the bugs.
-
-## Core Principle
-
-```
-FIND EVERY BUG. THEN FIND THE CRACK THAT BREEDS THEM.
-BUGS ARE SYMPTOMS. STRUCTURE IS THE DISEASE.
-EVERY FINDING NEEDS FILE:LINE + EVIDENCE.
-```
-
-## Process Flow
-
-```dot
-digraph review {
-    rankdir=TB;
-
-    "Start" [shape=doublecircle];
-    "Resolve context (spec, diff, base)" [shape=box];
-    "Survey: read spec, then full diff + surrounding code" [shape=box];
-    "Find all bugs (spec, runtime, security, data, cross-file)" [shape=box];
-    "Bugs found?" [shape=diamond];
-    "Diagnose: what structural deficiency breeds these bugs?" [shape=box];
-    "Structural deficiency found?" [shape=diamond];
-    "Verify diagnosis: does the crack explain the bug cluster?" [shape=box];
-    "Write review.md" [shape=box];
-    "No bugs — write report" [shape=doublecircle];
-    "Done" [shape=doublecircle];
-
-    "Start" -> "Resolve context (spec, diff, base)";
-    "Resolve context (spec, diff, base)" -> "Survey: read spec, then full diff + surrounding code";
-    "Survey: read spec, then full diff + surrounding code" -> "Find all bugs (spec, runtime, security, data, cross-file)";
-    "Find all bugs (spec, runtime, security, data, cross-file)" -> "Bugs found?";
-    "Bugs found?" -> "No bugs — write report" [label="zero bugs"];
-    "Bugs found?" -> "Diagnose: what structural deficiency breeds these bugs?" [label="yes"];
-    "Diagnose: what structural deficiency breeds these bugs?" -> "Structural deficiency found?";
-    "Structural deficiency found?" -> "Verify diagnosis: does the crack explain the bug cluster?" [label="yes"];
-    "Structural deficiency found?" -> "Write review.md" [label="no — bugs are independent, report all"];
-    "Verify diagnosis: does the crack explain the bug cluster?" -> "Write review.md";
-    "Write review.md" -> "Done";
-}
-```
-
-## Roles
-
-| Role | Who | Why |
-|------|-----|-----|
-| Reviewer | **You (Claude)** | Fresh context, no implementation baggage |
-| Spec oracle | **spec.md** | What was intended — the standard to judge against |
-| Code evidence | **git diff + file reads** | What actually exists — the material reality |
-
-No Codex in review. The reviewer must read the code directly — delegating
-review to another model loses the holistic view needed to diagnose
-structural deficiencies. Diagnosis is synthesis, not generation.
+1. Find real bugs in the active change scope.
+2. Report findings first, ordered `P1`, then `P2`, then `P3`.
+3. Add a short diagnosis only if multiple findings share one root cause.
 
 ## Hard Rules
 
-1. Every bug must include file:line + concrete triggering scenario. No "this could be a problem."
-2. Find ALL bugs first. Do not stop at the first one. Do not skip files.
-3. After finding all bugs, diagnose the structural deficiency that breeds them.
-4. The diagnosis must explain why these bugs cluster — not just which is worst.
-5. Do NOT report style/formatting issues. Do NOT propose refactors beyond the spec.
-6. Zero bugs means zero bugs. Not "minor bugs I'll let slide."
-7. Read the spec BEFORE reading the diff. Intent before implementation.
+1. Investigate first. Do not report a bug until you understand the changed code path.
+2. Read the spec first if a spec is available.
+3. Review the active change scope: branch diff from base plus any staged or unstaged changes that exist.
+4. Read the full contents of changed files, not just diff hunks.
+5. Every finding needs `file:line`, trigger, impact, and fix direction.
+6. Report only correctness, security, or spec issues. No style or refactor nits.
+7. `review.md` is freeform, but the result must be actionable.
+8. Diagnosis is optional and always secondary to concrete findings.
 
-## What To Look For
+## Valid Findings
 
-The bugs that survive CI but explode in production:
+Report only issues that meet at least one of these:
 
-| Category | What to check | Example |
-|----------|---------------|---------|
-| **Spec violations** | Feature missing, wrong, or incomplete vs acceptance criteria | Handler returns 200 but spec says 201 |
-| **Runtime errors** | Null derefs, type mismatches, unhandled edge cases | `user.name.split()` when user can be null |
-| **Race conditions** | Concurrent access to shared state without synchronization | Two requests updating same counter without lock |
-| **Trust boundary violations** | User input flowing into privileged operations unchecked | Query param used directly in SQL/shell/eval |
-| **N+1 queries** | Loop issuing one query per item instead of batch | `for user in users: db.query(user.id)` |
-| **Missing error handling** | Unhandled failures at system boundaries (APIs, DB, FS) | `await fetch(url)` with no catch, no timeout |
-| **Forgotten enum arms** | New enum value added, switch/match doesn't handle it | New `PaymentStatus.REFUNDED` but switch has no case |
-| **Tests testing the wrong thing** | Test asserts on mock behavior, not real behavior | Mocking the function under test, asserting mock was called |
-| **Data integrity** | Lost updates, partial writes, inconsistent state | Update two tables without transaction |
-| **Cross-file inconsistency** | Duplicate logic, interface mismatch, naming conflict | Same validation in 2 places, one updated, one stale |
-| **Security** | Injection, auth bypass, secrets exposure, SSRF | `eval(userInput)`, hardcoded API key, open redirect |
+- violates the spec or acceptance criteria
+- causes broken behavior or a runtime error
+- causes data loss, partial writes, or inconsistent state
+- creates a security or trust-boundary vulnerability
+- breaks callers, consumers, or shared interfaces after a change
+- lets tests pass while the real behavior is still wrong
 
-Do NOT look for: naming preferences, "better" abstractions, missing
-comments, test coverage percentages, import ordering, or anything
-that doesn't affect correctness or security.
+A finding without a traced code path or concrete observation is not a
+valid finding.
 
-## Quality Gates
+Do not report:
 
-| Gate | Condition | Fail action |
-|------|-----------|-------------|
-| Start → Survey | Spec and diff both readable | Escalate (missing input) |
-| Survey → Bugs | All changed files read in full (not just diff hunks) | Re-read missed files |
-| Bugs → Diagnosis | Every bug has file:line + triggering scenario | Add evidence |
-| Diagnosis → Report | Structural deficiency explains bug cluster (or explicit "independent") | Re-diagnose |
+- style preferences
+- naming opinions
+- speculative future concerns
+- unrelated refactor ideas
+- missing comments
 
----
+## Severity
 
-## Phase 1: Resolve Context
+| Label | Use when |
+|------|----------|
+| `P1` | ship-stopping correctness failure, security issue, data loss, or major regression |
+| `P2` | real bug or spec deviation with narrower scope or blast radius |
+| `P3` | concrete lower-impact bug or edge-case failure |
 
-Determine inputs:
+`P3` is still a real bug. It needs the same evidence standard as `P1`
+and `P2`.
 
-| Parameter | Source | Fallback |
-|-----------|--------|----------|
-| Spec path | Caller provides | `.ship/tasks/<task_id>/plan/spec.md` |
-| Base branch | Caller provides | `main` |
-| Diff command | Derived | `git diff <base>...HEAD` |
-| Task dir | Caller provides | Auto-detect from `.ship/tasks/` |
+## Context
 
-```bash
-# Verify inputs exist
-git diff <base>...HEAD --stat
-```
+Use the smallest possible setup contract:
 
-If no diff exists → no bugs, write empty review.
+- `base_branch`: caller-provided, else detect the repo default branch
+- `spec`: caller-provided, else `<task_dir>/plan/spec.md` if it exists
+- `task_dir`: caller-provided, else `.ship/tasks/ad-hoc-review-<branch>`
+- `scope`: the active change scope = `base_branch...HEAD` plus any staged or unstaged worktree changes
 
-## Phase 2: Survey
+If there is no spec, do a diff-only review and say so explicitly.
+If there are no changes, write a short clean report and stop.
 
-Read the spec first, then the diff. Order matters — intent before
-implementation.
+## Procedure
 
-### Step A: Read the spec
+### 1. Resolve the review scope
 
-Extract acceptance criteria. These become your spec compliance checklist.
-For each criterion, note: what behavior is expected, what inputs/outputs
-are specified, what edge cases are mentioned.
-
-### Step B: Read the full diff and surrounding code
+Use:
 
 ```bash
 git diff <base>...HEAD --name-only
+git diff --cached --name-only
+git diff --name-only
 ```
 
-For each changed file:
-1. Read the **full file**, not just the diff hunks. Bugs hide in the
-   interaction between new code and existing code.
-2. Note the file's responsibility and how it connects to other changed files.
-3. Trace cross-file data flows: which functions call which, which
-   types are shared, which data crosses file boundaries.
+Use the union of those file lists as the review scope in both pipeline
+and standalone mode. In a clean worktree, the staged and unstaged lists
+are empty.
 
-### Step C: Map the attack surface
+### 2. Read the spec first
 
-Identify where external input enters the system (HTTP params, user
-input, file uploads, env vars, DB results) and trace how it flows
-through the changed code. Trust boundary violations live on these paths.
+If a spec exists:
 
-## Phase 3: Find All Bugs
+- extract the acceptance criteria
+- note required behavior and edge cases
+- keep that checklist in mind while reviewing
 
-Walk through the changeset systematically. For each bug, record:
+If no spec exists:
 
-```
-- File: <path>:<line>
-- Category: <from the table above>
-- Bug: <what's wrong — specific, concrete>
-- Trigger: <input or scenario that causes the bug>
-- Impact: <what breaks — data loss, crash, security breach, wrong result>
-```
+- continue with diff-only review
+- say "Spec unavailable; reviewed against code and diff only"
 
-### How to look
+### 3. Investigate the changed code path
 
-**For spec violations:** Walk each acceptance criterion. For each one,
-find the code that implements it. Does the implementation match the
-spec? Check return values, error cases, edge conditions.
+Before writing any finding, understand:
 
-**For runtime errors:** At every function boundary, check: can the
-input be null/undefined/empty? Is the return value checked? Can the
-operation throw? Are types actually guaranteed at runtime, or only
-at compile time?
+- what changed
+- what the code is trying to do
+- which path fails and why
 
-**For race conditions:** Find shared mutable state. Is it accessed
-from multiple code paths (request handlers, background jobs, event
-handlers)? Is there synchronization?
+For every changed file:
 
-**For trust boundaries:** Trace every external input from entry point
-to where it's used. Is it validated/sanitized before reaching
-privileged operations (SQL, shell, file system, eval, redirect)?
+1. Read the full file
+2. Read directly affected callers and consumers when needed
+3. Trace cross-file effects when types, interfaces, or shared constants changed
+4. If a potential bug is unclear, keep tracing until you can prove or disprove it
 
-**For N+1 queries:** Find loops that touch the database. Is there a
-query inside the loop body? Could it be a single batch query?
+Do not infer behavior from names, comments, tests, or the spec alone.
+Do not stop at the first bug. Review the full scope before finalizing.
 
-**For error handling:** Find every call to an external system (HTTP,
-DB, FS, child process). Is the failure case handled? Is there a
-timeout? What happens on partial failure?
+### 4. Look for bugs systematically
 
-**For enum arms:** Find switch/match statements on types that were
-changed. Are all cases handled? Is there a default that silently
-swallows new values?
+Check for:
 
-**For data integrity:** Find multi-step writes (update A then update B).
-Are they in a transaction? What happens if the process crashes between
-step A and step B? Are there read-modify-write cycles without optimistic
-locking or compare-and-swap?
+- spec violations
+- runtime errors and unchecked null or undefined paths
+- missing error handling at system boundaries
+- race conditions and shared mutable state hazards
+- data integrity bugs around multi-step writes
+- security and trust-boundary issues
+- forgotten enum arms or stale consumers
+- tests that assert the wrong thing
+- cross-file inconsistencies from partial updates
 
-**For cross-file inconsistency:** When the diff changes a type, interface,
-or shared constant, grep for every consumer. Are all consumers updated?
-When logic is duplicated across files, is every copy consistent? When a
-function signature changes, do all call sites pass the right arguments?
+### 5. Rank findings
 
-**For security (beyond trust boundaries):** Check for hardcoded secrets,
-open redirects (`redirect(req.query.url)`), SSRF (server fetching
-user-controlled URLs), path traversal (`readFile(userInput)`), and
-deserialization of untrusted data. Check that auth/authz is enforced
-on every new endpoint, not just the ones the spec mentions.
+Order findings by:
 
-**For tests:** Read each test. Does it test the actual behavior, or
-does it mock so aggressively that it's testing the mock setup? Does
-the assertion match what the spec requires?
+1. `P1`
+2. `P2`
+3. `P3`
 
-If zero bugs found → write "No bugs found" and skip to Phase 5.
+Within a severity bucket, order by user impact.
 
-## Phase 4: Diagnose the Structural Deficiency
+Do not use `B1`, `B2`, or any non-severity numbering scheme.
 
-You have a list of bugs. Now ask: **why does this code breed bugs?**
+### 6. Diagnose only if it helps
 
-### Step A: Cluster the bugs
+After collecting all findings, ask whether several findings share one
+structural deficiency, for example:
 
-Group bugs by structural proximity — not by category, but by what
-part of the code's structure they share. Bugs that cluster around
-the same structural weakness are symptoms of the same disease.
+- validation responsibility is distributed instead of enforced at the boundary
+- shared mutable state has no ownership model
+- multi-step writes have no transaction boundary
+- duplicated logic drifted across files
+- tests are coupled to implementation details instead of behavior
 
-Examples of structural deficiencies that breed bugs:
+If one clear root cause explains multiple findings, add a short
+diagnosis after the findings. Otherwise omit diagnosis.
 
-| Structural deficiency | Bug symptoms it produces |
-|----------------------|--------------------------|
-| No input validation boundary — every function must defensively check | Scattered null derefs, type errors, injection |
-| Shared mutable state without ownership model | Race conditions, lost updates, inconsistent reads |
-| Trust boundary in wrong layer | Auth bypasses keep appearing in new endpoints |
-| No transaction boundary around multi-step writes | Partial failures, inconsistent state, data loss |
-| Switch/match without exhaustiveness enforcement | Forgotten arms every time an enum grows |
-| Copy-pasted logic instead of shared abstraction | One copy updated, others stale — inconsistent behavior |
-| Tests coupled to implementation (mock-heavy) | Tests pass while code is wrong, false confidence |
+## Output
 
-### Step B: Name the principal contradiction
+Write to `<task_dir>/review.md`.
 
-State it as: **"The code does X, but it needs to do Y to prevent
-this class of bugs."**
+`review.md` is freeform. Favor concise, actionable review notes over a
+rigid template. Findings come first. Open questions come after findings.
 
-Example: "The code validates user input at the handler level, but
-three services also accept raw input directly — so every new service
-must remember to validate, and some won't. The principal contradiction
-is: validation responsibility is distributed when it should be
-centralized at the boundary."
+Each finding must include:
 
-### Step C: Verify the diagnosis
+- severity: `P1`, `P2`, or `P3`
+- short title
+- `file:line`
+- trigger or concrete observation
+- impact
+- fix direction
 
-For each bug in the cluster, confirm: if the structural deficiency
-were fixed, would this bug be impossible (or at least much harder
-to introduce)?
-
-- If yes for most bugs → diagnosis confirmed.
-- If no → re-cluster, re-diagnose. Maximum 1 retry.
-- If bugs are genuinely independent (no shared structural root) →
-  report them as independent with no structural diagnosis. This is
-  rare but honest.
-
-## Phase 5: Write Report
-
-Write to `.ship/tasks/<task_id>/review.md`.
-
-The report is for two readers: the human (who decides priority) and
-auto (who reads it and fixes). No special format needed — just be
-clear about what's wrong, where, and how to fix it.
-
-### Report structure
+Example:
 
 ```markdown
 # Code Review
+
+## Findings
+
+### P1: Missing transaction around user write and audit write
+- File: `src/services/createUser.ts:48`
+- Trigger: user insert succeeds and audit insert fails
+- Impact: state becomes inconsistent
+- Fix: wrap both writes in one transaction or add rollback
+
+### P2: New enum value is not handled in status mapping
+- File: `src/email/status.ts:22`
+- Trigger: `DeliveryStatus.Bounced` reaches this switch
+- Impact: callers receive the wrong label
+- Fix: add the missing enum arm and cover it in tests
 
 ## Diagnosis
 
-**Principal contradiction:** <one-sentence structural deficiency>
-
-<Why this structure breeds bugs. What class of bugs it will keep
-producing if left unfixed.>
-
-**Fix the structure:** <specific structural fix — where, what to change>
-
-## Bugs
-
-### B1: <title>
-- **File:** `<path>:<line>`
-- **Category:** <category>
-- **Trigger:** <input or scenario>
-- **Impact:** <what breaks>
-- **Fix:** <specific fix direction>
-
-### B2: <title>
-...
-```
-
-If no structural deficiency exists (bugs are independent), omit the
-Diagnosis section. If no bugs exist, write:
-
-```markdown
-# Code Review
-
-No bugs found. Reviewed <N> files, <M> lines changed against spec.
-```
-
-## Standalone vs Pipeline Mode
-
-### Standalone (`/ship:review`)
-
-- Read diff from current branch vs base
-- Auto-detect spec from `.ship/tasks/` or ask user
-- Write report to `.ship/tasks/<task_id>/review.md`
-
-### Pipeline mode (called by /ship:auto)
-
-- Task ID, spec path, and base branch provided by caller
-- Write report to `.ship/tasks/<task_id>/review.md`
-- Do NOT ask user questions — escalate via BLOCKED if stuck
-
-### Detecting invocation mode
-
-- **From /ship:auto**: the calling prompt contains a `task_id` and `task_dir`.
-- **Standalone** (`/ship:review`): invoked directly by user.
-
-## Artifacts
-
-```text
-.ship/tasks/<task_id>/
-  review.md   — review report
+Persistence responsibilities are split across layers, so every new write
+path must remember the same defensive work.
 ```
 
 ## Error Handling
 
-| Error | Action |
-|-------|--------|
-| No diff exists | No bugs, write empty review |
-| Spec not found | Ask user if standalone, use diff-only review if pipeline |
-| Diff too large (>3000 lines) | Split by directory, review each section |
-
-## Completion
-
-### Only stop for
-- Review report written (with or without bugs)
-- Cannot read diff or spec (escalate)
-
-### Never stop for
-- Large diff size (split and continue)
-- Ambiguous spec criteria (review against what you can determine, flag ambiguity)
+| Condition | Action |
+|-----------|--------|
+| No spec found | Continue with diff-only review and say so explicitly |
+| No changes found | Write a clean report and stop |
+| Diff too large (>3000 lines) | Split by subsystem or directory, then merge into one review |
+| Some context is ambiguous | Investigate further; if still unresolved, record an open question instead of a bug |
+| Cannot read the diff at all | Escalate as blocked |
 
 <Bad>
-- Producing a flat list of bugs without diagnosing the structural deficiency
-- Reporting only the structural deficiency without listing every bug
-- Finding one bug and stopping (find ALL bugs, then diagnose)
-- Reporting style nits, naming preferences, or "better" abstractions
-- Skipping files because they "look straightforward"
-- Reading the spec AFTER the diff (intent before implementation)
-- Marking "no bugs" when bugs exist but seem "minor"
-- Reviewing code outside the diff scope
-- Diagnosing a structural deficiency that doesn't actually explain the bug cluster
-- Forcing a structural diagnosis when bugs are genuinely independent
-- Reporting "this could be a problem" without a triggering scenario
-- Delegating the actual code reading to a sub-agent
-- Fixing structural deficiencies in-place (report and recommend — don't refactor during review)
+- Leading with philosophy instead of findings
+- Reporting style nits or refactor wishes
+- Using `B1` or `B2`
+- Reporting a concern without `file:line` and trigger
+- Reporting a bug before understanding the code path
+- Reading only diff hunks for changed files
+- Ignoring staged or unstaged work in standalone mode
+- Forcing a diagnosis when the findings do not share one root cause
+- Writing a vague "looks good" report with no evidence trail
 </Bad>

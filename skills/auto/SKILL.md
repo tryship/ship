@@ -243,23 +243,16 @@ Agent(prompt="Call Skill('review').
   task_dir: .ship/tasks/<TASK_ID>
   spec: .ship/tasks/<TASK_ID>/plan/spec.md
   base_branch: <BASE_BRANCH>
-  Write review to: .ship/tasks/<TASK_ID>/review.md
-
-  When done, end your response with:
-  [RESULT]
-  status: DONE|BLOCKED
-  detail: <e.g. 'No bugs found' or '3 bugs found: B1, B2, B3' or 'Cannot read diff'>
-  artifacts: .ship/tasks/<TASK_ID>/review.md
-  [/RESULT]")
+  Write review to: .ship/tasks/<TASK_ID>/review.md")
 ```
 
-**After return:** read `[RESULT]` from Agent response.
+**After return:** read the Agent response directly.
 
-| status / detail | Action |
-|-----------------|--------|
-| DONE, no bugs found | proceed |
-| DONE, N bugs found | enter review-fix loop (below) |
-| BLOCKED | re-dispatch with adjusted context (max 2 rounds) |
+| Response shape | Action |
+|----------------|--------|
+| Clearly indicates the review is clean | proceed |
+| Includes findings or bug summaries | enter review-fix loop (below) |
+| Clearly indicates the review is blocked or not reviewable | re-dispatch with adjusted context (max 2 rounds) |
 
 ### Review-fix loop
 
@@ -277,9 +270,9 @@ loop:
        ...same [RESULT] contract...")
   3. Set phase: review
   4. Re-dispatch ship:review (same prompt as above)
-  5. Read [RESULT]:
+  5. Read the review response directly:
      - No bugs found → break, proceed
-     - Bugs found → next round
+     - Findings listed → next round
 ```
 
 **State update:** set `phase: qa` in `.ship/ship-auto.local.md`.
@@ -462,17 +455,16 @@ Output: `[Ship] PR merge-ready: <url>`
   Agent(prompt="Call Skill('review'). base_branch: main ...")
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: 2 bugs found: B1 missing null check in useTheme, B2 CSS variable fallback
-  artifacts: .ship/tasks/add-dark-mode-toggle/review.md
-  [/RESULT]
+  Found 2 bugs:
+  - P1: missing null check in useTheme
+  - P2: CSS variable fallback is stale
+  Review written to .ship/tasks/add-dark-mode-toggle/review.md
 
 [Ship] 2 bugs found. Entering review-fix loop...
 
 [Ship] State update: phase → dev (fix mode)
 [Ship] Dispatching /ship:dev to fix review bugs...
-  Agent(prompt="Call Skill('dev'). fix mode. Bugs: B1, B2 ...")
+  Agent(prompt="Call Skill('dev'). fix mode. Bugs: P1, P2 ...")
 
   Agent returns:
   [RESULT]
@@ -484,11 +476,8 @@ Output: `[Ship] PR merge-ready: <url>`
 [Ship] Re-dispatching /ship:review...
 
   Agent returns:
-  [RESULT]
-  status: DONE
-  detail: No bugs found
-  artifacts: .ship/tasks/add-dark-mode-toggle/review.md
-  [/RESULT]
+  No bugs found.
+  Review written to .ship/tasks/add-dark-mode-toggle/review.md
 
 [Ship] State update: phase → qa
 [Ship] Review clean. Starting QA...
@@ -572,7 +561,7 @@ Output: `[Ship] PR merge-ready: <url>`
 | Principle | How the example enforces it |
 |-----------|---------------------------|
 | **State file tracks phase** | Every phase transition updates the state file |
-| **Agent return is the contract** | Orchestrator reads `[RESULT]` directly, no file parsing |
+| **Agent return is the contract** | Orchestrator reads the subagent response directly; review does not require a `[RESULT]` block |
 | **Fix loops go back to dev** | Review bugs → phase set to dev → dev fixes → phase set to review |
 | **Simplify is safe** | SHA recorded before, tests run after, revert if broken |
 | **No code writes** | Orchestrator dispatches Agents for all code changes |
