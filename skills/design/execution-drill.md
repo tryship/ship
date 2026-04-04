@@ -46,7 +46,8 @@ Check that plan.md follows the writing-plans format:
 - [ ] Has header with Goal, Architecture, Tech Stack
 - [ ] Tasks have checkbox steps (- [ ] syntax)
 - [ ] Steps follow TDD order: failing test → verify fail → implement → verify pass → commit
-- [ ] Every code step has a complete code block (not a description of what to write)
+- [ ] Steps that change code show the code (test steps show complete test code;
+      implementation steps show code or interface/signature/key logic for larger changes)
 - [ ] Every run step has an exact command with expected output
 - [ ] Every file reference is a specific path (no "the test file" or "the handler")
 - [ ] No placeholders: TBD, TODO, "implement later", "similar to Task N",

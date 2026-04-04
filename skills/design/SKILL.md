@@ -125,7 +125,8 @@ digraph plan {
 5. Disk artifacts are truth. Prior conversation is reference only.
 6. The execution drill must pass before any plan is marked ready.
 7. spec.md has no rigid template — sections scale to task complexity.
-8. plan.md has no placeholders — every step has complete code and commands.
+8. plan.md has no placeholders. If a step changes code, show the code.
+   Exact file paths always. Exact commands with expected output.
 
 ## Quality Gates
 
@@ -368,7 +369,11 @@ the writing-plans format.
 
 - [ ] **Step 1: Write the failing test**
 
-<complete test code>
+```<lang>
+def test_specific_behavior():
+    result = function(input)
+    assert result == expected
+```
 
 - [ ] **Step 2: Run test to verify it fails**
 
@@ -377,7 +382,10 @@ Expected: FAIL with "<specific error>"
 
 - [ ] **Step 3: Write minimal implementation**
 
-<complete implementation code>
+```<lang>
+def function(input):
+    return expected
+```
 
 - [ ] **Step 4: Run test to verify it passes**
 
@@ -386,10 +394,38 @@ Expected: PASS
 
 - [ ] **Step 5: Commit**
 
-`git commit -m "feat: <description>"`
+```bash
+git add <files you changed>
+git commit -m "feat: <description>"
+```
 
 ### Task 2: ...
 ```
+
+### Bite-sized step granularity
+
+Each step is one action:
+- "Write the failing test" — one step
+- "Run it to make sure it fails" — one step
+- "Implement the minimal code to make it pass" — one step
+- "Run the tests" — one step
+- "Commit" — one step
+
+### No placeholders
+
+Every step must contain the actual content the implementer needs.
+These are plan failures — never write them:
+- "TBD", "TODO", "implement later", "fill in details"
+- "Add appropriate error handling" / "add validation" / "handle edge cases"
+- "Write tests for the above" (without actual test code)
+- "Similar to Task N" (repeat the content — the implementer may read tasks out of order)
+- Steps that describe what to do without showing how
+
+If a step changes code, show the code. Test steps always show complete
+test code — the test IS the specification. Implementation steps show
+complete code for small focused changes; for larger steps, show the
+interface, signature, key logic, and file:line integration points so
+the implementer knows exactly what to build and where.
 
 ### Plan self-review
 
@@ -397,7 +433,8 @@ After writing, check against spec.md:
 
 1. **Spec coverage:** Every acceptance criterion in spec.md has a task
    that implements it. List any gaps.
-2. **Placeholder scan:** Search for "TBD", "TODO", vague steps. Fix them.
+2. **Placeholder scan:** Search for any of the patterns from the
+   "No placeholders" section above. Fix them.
 3. **Type consistency:** Do types, function names, and signatures match
    across tasks? A function called `clearLayers()` in Task 2 but
    `clearFullLayers()` in Task 5 is a bug.
@@ -405,7 +442,7 @@ After writing, check against spec.md:
    by overfitting fixtures, editing the harness, or optimizing for tests
    while violating the task intent?
 
-Fix issues inline.
+Fix issues inline. No need to re-review — just fix and move on.
 
 ## Phase 6: Execution Drill
 
