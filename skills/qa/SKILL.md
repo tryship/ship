@@ -183,9 +183,24 @@ When invoked with `--recheck`:
 - `references/electron.md` — Electron app automation via CDP
 - `references/report.md` — shared exploratory report template
 
-## Completion
+## Execution Handoff
 
-### Never stop for
-- Individual criterion failures (record and continue)
-- A single service failing to start (test what you can)
+Never stop for individual criterion failures (record and continue)
+or a single service failing to start (test what you can).
+
+Output summary, then offer next steps in standalone mode:
+
+```
+[QA] <PASS|FAIL|BLOCKED|SKIP>
+  Criteria: <N>/<total> passed
+  Issues: <N> found beyond spec
+  Reports: <qa_dir>/
+
+## What's next?
+1. **Fix failures** — run /ship:dev to fix the reported issues
+2. **Ship (if passing)** — run /ship:handoff to create the PR
+3. **Full pipeline** — run /ship:auto to handle fixes and shipping
+```
+
+In /ship:auto mode, skip the "What's next?" choices and return — Auto owns the flow.
 

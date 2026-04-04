@@ -460,9 +460,9 @@ commit message summarizing what was generated.
 
 ---
 
-## Completion
+## Execution Handoff
 
-Always output this format:
+Output summary and offer next steps:
 
 ```
 [Setup] Complete.
@@ -482,6 +482,11 @@ Harness:
   Safety rules:
     1. <name> — <what it blocks>
     2. <name> — <what it blocks>
+
+## What's next?
+1. **Start building** — run /ship:auto with a task description
+2. **Review harness** — read AGENTS.md and CONVENTIONS.md
+3. **Customize** — edit conventions or hookify rules
 ```
 
 ## Reference Files

@@ -158,9 +158,9 @@ If blast radius >5 files: write card to `.ship/tasks/<task_id>/plan/spec.md` and
 
 If tests fail twice on the same step: revert to last passing state, report what failed.
 
-## Phase 4: Report
+## Execution Handoff
 
-After all changes, report to user:
+After all changes, output summary and offer next steps:
 
 ```
 [Refactor] Complete.
@@ -171,9 +171,13 @@ After all changes, report to user:
   Lines before/after: <N> → <M>
   Files touched: <N>
   Tests: <passed|failed|none>
-```
+  Deferred: <smells outside blast radius, if structural>
 
-If structural: also report which smells were deferred (not addressed in this invocation).
+## What's next?
+1. **Review** — run /ship:review to verify no behavior changed
+2. **Ship** — run /ship:handoff to create the PR
+3. **Continue** — run /ship:refactor on remaining deferred smells
+```
 
 ## Quality Gates
 

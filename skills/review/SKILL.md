@@ -235,3 +235,20 @@ path must remember the same defensive work.
 | Some context is ambiguous | Investigate further; if still unresolved, record an open question instead of a bug |
 | Cannot read the diff at all | Escalate as blocked |
 
+## Execution Handoff
+
+Output summary, then offer next steps in standalone mode:
+
+```
+[Review] <Clean|Findings|Blocked>
+  Findings: <P1 count> P1, <P2 count> P2, <P3 count> P3
+  Review written to: <task_dir>/review.md
+
+## What's next?
+1. **Fix findings** — run /ship:dev to fix the reported bugs
+2. **QA (if clean)** — run /ship:qa to test the running application
+3. **Ship (if clean)** — run /ship:handoff to create the PR
+```
+
+In /ship:auto mode, skip the "What's next?" choices and return — Auto owns the flow.
+

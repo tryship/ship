@@ -375,11 +375,22 @@ Use `[Implement]` prefix:
 | Peer implementer crash (exit != 0) | Check HEAD + working tree; stash if dirty; retry once; then BLOCKED |
 | Agent dispatch failure | Retry once, then BLOCKED |
 
-## Completion
+## Execution Handoff
 
-Report one of:
-- **DONE** — all stories implemented, reviewed, committed.
-- **DONE_WITH_CONCERNS** — all stories pass, concerns recorded.
-- **BLOCKED** — a story failed after max retries.
-- **NEEDS_CONTEXT** — missing information needed from user.
+Output summary, then offer next steps in standalone mode:
+
+```
+[Implement] <DONE|DONE_WITH_CONCERNS|BLOCKED|NEEDS_CONTEXT>
+  Stories: <N>/<total> complete, <W> waves
+  Concerns: <N> recorded in concerns.md
+  Tests: <TEST_CMD> — <passed|failed>
+  Files changed: <list>
+
+## What's next?
+1. **Review (recommended)** — run /ship:review to review the full diff
+2. **QA** — run /ship:qa to test the running application
+3. **Full pipeline** — run /ship:auto to review, QA, and ship
+```
+
+In /ship:auto mode, skip the "What's next?" choices and return — Auto owns the flow.
 
