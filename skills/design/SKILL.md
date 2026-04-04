@@ -116,17 +116,6 @@ digraph plan {
 | Write plan.md | **You** | Spec context must flow into plan |
 | Execution Drill | **Peer agent** (fresh session) | Fresh eyes test implementability |
 
-## Hard Rules
-
-1. You read all code you reference. No citing files you haven't opened.
-2. The peer agent never sees your spec when producing its own. Independence is sacred.
-3. The peer agent receives the same investigation instructions you follow.
-4. Divergences are resolved by code evidence. When evidence alone isn't conclusive, debate with the peer agent (max 2 rounds, both sides cite file:line).
-5. Disk artifacts are truth. Prior conversation is reference only.
-6. The execution drill must pass before any plan is marked ready.
-7. spec.md has no rigid template — sections scale to task complexity.
-8. plan.md has no placeholders. If a step changes code, show the code.
-   Exact file paths always. Exact commands with expected output.
 
 ## Quality Gates
 
@@ -385,12 +374,15 @@ RECOMMENDATION: <what the user should do next>
 ```
 
 ## Red Flag
+- Citing files you haven't opened
+- Letting the peer see your spec before producing its own
+- Resolving divergences by reasoning instead of code evidence (max 2 debate rounds, both sides cite file:line)
+- Trusting prior conversation over disk artifacts
+- Marking plan ready when drill has BLOCKED or UNCLEAR items
+- Skipping the drill because "the plan looks solid"
 - Delegating investigation to a sub-agent (you must read the code yourself)
-- Writing plan.md with vague steps ("update the handler", "add tests")
-- Writing plan.md with placeholders (TBD, TODO, "similar to Task N")
 - Claiming "function X is not called" without tracing all callers
-- Proposing a fix without searching for existing defenses that already handle it
+- Proposing a fix without searching for existing defenses
 - Proposing to create a file without checking if it already exists
 - Changing a value without grepping tests that assert the old value
-- Marking plan ready when drill has BLOCKED items
-- Skipping the drill because "the plan looks solid"
+- Writing plan.md with vague steps or placeholders (TBD, TODO, "similar to Task N")
