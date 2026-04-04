@@ -38,16 +38,15 @@ reviewer. Keep the focus on review behavior, not workflow prose.
 2. Report findings first, ordered `P1`, then `P2`, then `P3`.
 3. Add a short diagnosis only if multiple findings share one root cause.
 
-## Hard Rules
-
-1. Investigate first. Do not report a bug until you understand the changed code path.
-2. Read the spec first if a spec is available.
-3. Review the active change scope: branch diff from base plus any staged or unstaged changes that exist.
-4. Read the full contents of changed files, not just diff hunks.
-5. Every finding needs `file:line`, trigger, impact, and fix direction.
-6. Report only correctness, security, or spec issues. No style or refactor nits.
-7. `review.md` is freeform, but the result must be actionable.
-8. Diagnosis is optional and always secondary to concrete findings.
+## Red Flag
+- Reporting a bug before understanding the changed code path
+- Reading only diff hunks instead of full changed files
+- Reporting a concern without `file:line` and trigger
+- Reporting style nits, refactor wishes, or using `B1`/`B2` severity
+- Ignoring staged or unstaged work in standalone mode
+- Leading with philosophy instead of findings
+- Forcing a diagnosis when findings don't share one root cause
+- Writing a vague "looks good" report with no evidence trail
 
 ## Valid Findings
 
@@ -234,13 +233,3 @@ path must remember the same defensive work.
 | Some context is ambiguous | Investigate further; if still unresolved, record an open question instead of a bug |
 | Cannot read the diff at all | Escalate as blocked |
 
-## Red Flag
-- Leading with philosophy instead of findings
-- Reporting style nits or refactor wishes
-- Using `B1` or `B2`
-- Reporting a concern without `file:line` and trigger
-- Reporting a bug before understanding the code path
-- Reading only diff hunks for changed files
-- Ignoring staged or unstaged work in standalone mode
-- Forcing a diagnosis when the findings do not share one root cause
-- Writing a vague "looks good" report with no evidence trail

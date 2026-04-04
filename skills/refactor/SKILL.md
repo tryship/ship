@@ -82,17 +82,18 @@ digraph refactor {
 }
 ```
 
-## Hard Rules
-
-1. Read the code before diagnosing. Every smell must cite file:line.
-2. Verify after every batch of changes. Tests, typecheck, or lint — whatever the repo has. If nothing: warn the user.
-3. If verification fails twice on the same change: revert and skip it. Do not force it.
-4. **Never change external behavior.** Same inputs, same outputs, same status codes, same return shapes, same validation rules. This is the most important rule.
-5. **Never rewrite a function's internal logic.** You may delete unused functions, extract parts into new functions, rename, simplify conditionals, and add guard clauses — but the function must produce identical output for all inputs. If you are tempted to "improve" a function's logic (change a format, tighten validation, rename return fields), STOP — that is a behavior change, not a refactor.
-6. **Run existing tests before AND after changes.** If tests exist for the code you're touching, run them first to establish a baseline, then after each batch. If a test that passed before now fails, your change broke behavior — revert immediately.
-7. Check for test files before claiming "no tests." Partial coverage is not zero coverage.
-8. Do not refactor and add features at the same time.
-9. **Single-seam structural**: one seam per invocation. **Codebase rescue**: address the primary contradiction plus all signals in its blast radius. Defer signals outside the blast radius.
+## Red Flag
+- **Changing external behavior** — same inputs must produce same outputs, status codes, return shapes, validation rules. This is the most important constraint.
+- **Rewriting a function's internal logic** — you may extract, rename, simplify conditionals, add guard clauses, but the function must produce identical output. If tempted to "improve" logic (change format, tighten validation, rename return fields), STOP — that is a behavior change.
+- Diagnosing without reading the code — every smell must cite file:line
+- Skipping verification ("tests are probably fine")
+- Forcing a change after verification fails twice — revert and skip it
+- Claiming "no tests" without checking for test files
+- Refactoring and adding features in the same session
+- Moving code between files without simplifying anything — that's reorganization, not refactoring
+- Architectural redesign disguised as refactoring
+- Writing a 100-line spec for a single file cleanup
+- Not running existing tests before AND after changes to establish baseline
 
 ## Phase 1: Scan
 
@@ -214,12 +215,3 @@ If structural: also report which smells were deferred (not addressed in this inv
 - Doing surgical cleanup as the last step of structural refactoring
 </Good>
 
-## Red Flag
-- Moving code between files without simplifying anything — that's reorganization, not refactoring
-- Writing a 100-line spec for a single file cleanup
-- Diagnosing without reading the code (citing comments about other files as evidence)
-- Skipping verification ("tests are probably fine")
-- Refactoring and adding features in the same session
-- Forcing a change after verification fails twice
-- Architectural redesign disguised as refactoring
-- Claiming "no tests" without checking for test files

@@ -67,6 +67,16 @@ Resolve once at the start:
 | Review → Next story | Verdict is PASS or PASS_WITH_CONCERNS | Targeted fix (max 2) |
 | All stories → Done | Full test suite passes | Targeted fix for regression |
 
+## Red Flag
+- Writing code, reading diffs for review, or running tests yourself — only coordination metadata allowed (git rev-parse, git diff --name-only, git status)
+- Skipping review for any story
+- Parallelizing stories that share files without dependency analysis
+- FAIL means targeted fix, not full re-implementation
+- Advancing to next story without dispatching a reviewer Agent
+- Letting the peer modify tests to make them pass instead of fixing code
+- Omitting prior stories context from the implementer prompt
+- The reviewer must be a fresh Agent each time — no accumulated context
+
 ---
 
 ## Phase 1: Setup
@@ -371,13 +381,3 @@ Report one of:
 - **BLOCKED** — a story failed after max retries.
 - **NEEDS_CONTEXT** — missing information needed from user.
 
-## Red Flags
-
-- You never write code, read diffs for review, or run tests yourself. Coordination metadata (git rev-parse, git diff --name-only, git status) is allowed.
-- The reviewer is a fresh Agent each time — no accumulated context.
-- Parallelizing stories that share files — only parallelize within a wave after dependency analysis.
-- No skipping review.
-- FAIL means targeted fix, not full re-implementation.
-- Advancing to next story without dispatching a reviewer Agent
-- Letting the peer modify tests to make them pass instead of fixing code
-- Omitting prior stories context from the implementer prompt

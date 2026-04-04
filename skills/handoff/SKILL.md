@@ -72,11 +72,20 @@ Done means:
 - relevant GitHub checks are green
 - no relevant GitHub checks are pending
 
-## Hard Rules
-
-- Re-verify after every code change before the next push.
-- Never force push.
-- Stop after 3 fix rounds and escalate.
+## Red Flag
+- **STOPPING WHEN THE PR IS CREATED** — #1 failure mode
+- Pushing code changes without re-running relevant local verification
+- Force pushing
+- Treating `pending` checks as "good enough"
+- Creating the PR before local verification runs
+- Using `git add -A` when unrelated local changes are present
+- Forgetting to stage and commit changelog or doc edits before the first push
+- Marking a thread or comment as resolved before the fix is actually pushed
+- Resolving comments that still need product, security, or architecture judgment
+- Trying to fix failures without reading the actual check logs or review comments
+- Syncing with base preemptively instead of only when drift, conflicts, or repo policy require it
+- Looping past 3 fix rounds instead of escalating
+- Leaving doc debt implicit instead of carrying it into the PR
 
 ---
 
@@ -334,17 +343,3 @@ Escalate when:
 - a remaining issue requires user judgment
 - GitHub checks stay pending past the wait timeout
 
-## Red Flag
-- **STOPPING WHEN THE PR IS CREATED** ← #1 failure mode
-- Treating `pending` checks as "good enough"
-- Creating the PR before local verification runs
-- Using `git add -A` when unrelated local changes are present
-- Forgetting to stage and commit changelog or doc edits before the first push
-- Treating `cancelled` checks as failures by default
-- Marking a thread or comment as resolved before the fix is actually pushed
-- Resolving comments that still need product, security, or architecture judgment
-- Trying to fix failures without reading the actual check logs or review comments
-- Syncing with base preemptively instead of only when drift, conflicts, or repo policy require it
-- Pushing code changes without re-running relevant local verification
-- Looping past 3 fix rounds instead of escalating
-- Leaving doc debt implicit instead of carrying it into the PR

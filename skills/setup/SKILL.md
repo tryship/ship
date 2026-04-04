@@ -35,20 +35,16 @@ If `SHIP_AUTH: not_logged_in`: AskUserQuestion — "Ship requires authentication
 If `SHIP_AUTO_LOGIN: true`: skip AskUserQuestion, run `ship auth login` directly.
 If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
-## Hard Rules
-
-1. Detect first, never assume. Never invent a default stack.
-2. One user interaction for infra module selection.
-3. Execute ONLY the modules the user selected.
-4. Respect existing config. Show diff and ask before replacing.
-5. Read the code before writing any convention rules.
-6. CONVENTIONS.md is for semantic rules only — things that require AI
-   judgment. Deterministic checks (regex/grep) go in hookify rules.
-7. Do not include style rules. The model follows project style by
-   reading the code. Do not include rules the linter already enforces.
-8. Two user interactions max for harness: convention confirmation
-   and existing file replacement (only if AGENTS.md or CONVENTIONS.md exists).
-   Hooks are automatic — hookify for deterministic, ship plugin for semantic.
+## Red Flag
+- Assuming a stack instead of detecting it
+- Executing modules the user did not select
+- Overwriting existing config without showing diff and asking
+- Writing convention rules without reading the code first
+- Putting style rules in CONVENTIONS.md — the model follows style by reading code
+- Putting grep-able checks in CONVENTIONS.md instead of hookify rules
+- Generating rules from templates without reading code
+- Running Dependabot inside CI/CD module (separate modules)
+- Overwriting existing core.hooksPath without asking
 
 ---
 
@@ -496,9 +492,3 @@ Harness:
 - `references/runtime-install-guide.md` — platform-specific runtime installation
 - `references/harness-audit.md` — harness freshness audit (Phase 3.5)
 
-## Red Flag
-- Putting style rules in CONVENTIONS.md
-- Putting grep-able checks in CONVENTIONS.md instead of hookify rules
-- Generating rules from templates without reading code
-- Running Dependabot inside CI/CD module
-- Overwriting existing core.hooksPath without asking

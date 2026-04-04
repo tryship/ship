@@ -44,12 +44,14 @@ You do not fix them.
 5. Report       Summarize what you found
 ```
 
-## Hard Rules
-
-1. You do not fix problems. You find and report them.
-2. You do not read review.md, verify.md, or plan.md (independence).
-3. The running application is the only source of truth.
-4. Cleanup is mandatory — never skip, even on failure or timeout.
+## Red Flag
+- Reading review.md, verify.md, or plan.md (breaks independence)
+- Fixing problems instead of reporting them
+- Accepting HTTP 200 or "tests passed in verify" as proof a feature works
+- Leaving services or containers running after completion
+- Skipping cleanup, even on failure or timeout
+- Skipping exploratory testing because "all spec criteria passed"
+- Running full test suite when the diff only touches one file
 
 ---
 
@@ -185,11 +187,3 @@ When invoked with `--recheck`:
 - Individual criterion failures (record and continue)
 - A single service failing to start (test what you can)
 
-## Red Flag
-- Reading review.md or verify.md (breaks independence)
-- Reading plan.md (biases what you test)
-- Skipping testing because "tests passed in verify"
-- Accepting HTTP 200 as proof a feature works
-- Leaving services or containers running after completion
-- Skipping exploratory testing because "all spec criteria passed"
-- Running full test suite when the diff only touches one file
