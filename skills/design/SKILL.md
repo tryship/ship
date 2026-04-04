@@ -19,7 +19,7 @@ allowed-tools:
 
 ```bash
 SHIP_PLUGIN_ROOT="${SHIP_PLUGIN_ROOT:-${CLAUDE_PLUGIN_ROOT:-${CODEX_HOME:-$HOME/.codex}/ship}}"
-SHIP_SKILL_NAME=plan source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
+SHIP_SKILL_NAME=design source "${SHIP_PLUGIN_ROOT}/scripts/preflight.sh"
 ```
 
 ### Auth Gate
@@ -28,7 +28,7 @@ If `SHIP_AUTH: not_logged_in`: AskUserQuestion — "Ship requires authentication
 If `SHIP_AUTO_LOGIN: true`: skip AskUserQuestion, run `ship auth login` directly.
 If `SHIP_TOKEN_EXPIRY` ≤ 3 days: warn user their token expires soon.
 
-# Ship: Plan
+# Ship: Design
 
 You ARE the planner. You read code, investigate, write spec and plan.
 You must read the code yourself — delegating investigation loses the
@@ -355,7 +355,7 @@ best available independent review. Add a warning:
 Verify `spec.md` and `plan.md` are non-empty on disk, then output:
 
 ```
-[Plan] Planning complete for "<task title>".
+[Design] Planning complete for "<task title>".
 
 ## Summary
 - Investigation: <N> files traced, <M> existing defenses found
@@ -380,7 +380,7 @@ In /ship:auto mode (the calling prompt contains a task_id), skip the
 ### Blocked (both modes)
 
 ```
-[Plan] BLOCKED
+[Design] BLOCKED
 REASON: <what failed and why>
 ATTEMPTED: <what was tried>
 UNRESOLVED: <escalated items from diff or drill>
