@@ -8,6 +8,8 @@ description: >
 allowed-tools:
   - Bash
   - Read
+  - Glob
+  - Grep
   - Agent
   - AskUserQuestion
   - mcp__codex__codex
