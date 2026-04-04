@@ -53,7 +53,8 @@ Follow the TDD cycle:
 2. Write the minimal code to make the test pass (Green)
 3. Verify all existing tests still pass: <TEST_CMD>
 4. Commit — this is MANDATORY, do not skip:
-   git add -A && git commit -m "<type>(<scope>): <description>"
+   git add <files you changed> && git commit -m "<type>(<scope>): <description>"
+   Stage ONLY the files you created or modified. Do not use `git add -A` or `git add .`.
    If you do not commit, your work is lost and the story fails.
 
 Passing tests is necessary, not sufficient. Preserve the task's intended

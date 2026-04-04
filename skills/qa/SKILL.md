@@ -58,9 +58,10 @@ You do not fix them.
 Read the spec and the diff. These two inputs decide everything.
 
 ```bash
-# What changed?
-git diff main...HEAD --stat
-git diff main...HEAD --name-only
+# What changed? Use the base branch provided by caller, or detect it.
+BASE=$(git symbolic-ref refs/remotes/origin/HEAD 2>/dev/null | sed 's|refs/remotes/origin/||' || echo main)
+git diff "$BASE"...HEAD --stat
+git diff "$BASE"...HEAD --name-only
 ```
 
 Read the spec file (provided by caller, or auto-detect from
