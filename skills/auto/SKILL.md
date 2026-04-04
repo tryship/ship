@@ -154,6 +154,8 @@ session_id: ${SHIP_SESSION_ID:-${CLAUDE_CODE_SESSION_ID:-${CODEX_SESSION_ID:-unk
 branch: <BRANCH>
 base_branch: <BASE_BRANCH>
 phase: design
+review_fix_round: 0
+qa_fix_round: 0
 started_at: "<ISO 8601 timestamp>"
 ---
 
@@ -303,8 +305,11 @@ Agent(prompt="Call Skill('review').
 
 ### Review-fix loop (max 3 rounds)
 
+Read `review_fix_round` from state file. Increment it at the start of each round
+and write back. If `review_fix_round` ≥ 3, escalate remaining findings to user.
+
 ```
-loop (max 3 rounds — after that, escalate to user):
+loop (max 3 rounds — tracked in state file as review_fix_round):
   1. Verify `.ship/ship-auto.local.md` now says `phase: review_fix`
   2. If resuming and the prior review Agent return is unavailable, read
      `.ship/tasks/<TASK_ID>/review.md` and use its latest findings as the fix input
@@ -375,8 +380,11 @@ Agent(prompt="Call Skill('qa').
 
 ### QA-fix loop (max 3 rounds)
 
+Read `qa_fix_round` from state file. Increment it at the start of each round
+and write back. If `qa_fix_round` ≥ 3, escalate remaining failures to user.
+
 ```
-loop (max 3 rounds — after that, escalate to user):
+loop (max 3 rounds — tracked in state file as qa_fix_round):
   1. Verify `.ship/ship-auto.local.md` now says `phase: qa_fix`
   2. If resuming and the prior QA Agent return is unavailable, read the latest
      failing report in `.ship/tasks/<TASK_ID>/qa/` and use it as the fix input
@@ -485,6 +493,26 @@ Agent(prompt="Call Skill('handoff').
 **Verify cleanup:** confirm `.ship/ship-auto.local.md` has been deleted.
 
 Output: `[Ship] PR checks green: <url>`
+
+## Phase 8: Learn
+
+After the pipeline completes (handoff done or escalated), capture
+session learnings. This runs silently — no user interaction.
+
+```
+Agent(prompt="Call Skill('learn').
+  Skip the skill's entire `## Preamble (run first)` section and Auth Gate.
+  /ship:auto already handled preflight and auth.
+  Reflect on this pipeline run and capture learnings.
+  You are invoked by /ship:auto — do NOT ask the user questions.
+  Capture silently and report what was captured in your return.
+  Pipeline context:
+  task_id: <TASK_ID>
+  branch: <BRANCH>
+  base_branch: <BASE_BRANCH>")
+```
+
+This phase is best-effort — if it fails, the pipeline is still complete.
 
 ---
 

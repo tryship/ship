@@ -33,7 +33,7 @@ You describe what you want to build. Ship handles the constraints that make AI o
 
 **setup** — Bootstrap repo infrastructure (detect languages, install tools, configure CI/CD, pre-commit hooks) and discover semantic constraints from code and git history. Generates AGENTS.md, CONVENTIONS.md (injected at session start), and hookify safety rules. Audits existing harness for staleness.
 
-**plan** — Reads the codebase yourself (no delegation), traces call chains and integration surfaces, writes spec + plan with file:line references. Hands it to an independent peer challenger for 2 rounds of adversarial review. You see the plan only after it survives falsification.
+**design** — Reads the codebase yourself (no delegation), traces call chains and integration surfaces, writes spec + plan with file:line references. Hands it to an independent peer challenger for 2 rounds of adversarial review. Scales process to task size: focused tasks (≤3 files) skip peer investigation and drill.
 
 **auto** — The full pipeline. Bootstraps a task directory, invokes design, then runs dev → review → QA → simplify → handoff autonomously. State tracked in `.ship/ship-auto.local.md` — stop-gate hook blocks exit while active. Every phase is a fresh subagent dispatch.
 
@@ -46,6 +46,10 @@ You describe what you want to build. Ship handles the constraints that make AI o
 **handoff** — Creates a PR with a concise verification summary, then enters the post-PR loop: monitor GitHub checks, fix failures, address review comments, resolve merge conflicts. Doesn't stop until the PR checks are green or retries are exhausted.
 
 **refactor** — Diagnose structural cracks from concrete pain, then fix directly. Surgical (within-file) or structural (cross-file) execution — code changes, not documents.
+
+**learn** — Captures mistakes and discoveries from sessions, routes them to the right persistent store (CONVENTIONS.md, hookify, design docs, or staging). Fully autonomous — no user interaction. Auto-promotes durable learnings and prunes stale ones.
+
+**write-design-docs** — Creates high-level design documents that prevent AI drift. Structured frontmatter enables AI indexing; status lifecycle tracks trust; the Boundaries section is the core anti-drift mechanism.
 
 Skills trigger automatically based on what you're doing. The harness enforces the workflow — you don't need to remember the process.
 
@@ -61,6 +65,8 @@ Skills trigger automatically based on what you're doing. The harness enforces th
 | `/ship:handoff` | PR creation with verification summary, GitHub check loop, and review comment resolution |
 | `/ship:refactor` | Diagnose structural cracks and fix directly — surgical or structural execution |
 | `/ship:setup` | Bootstrap infra + discover semantic constraints, generate AGENTS.md + CONVENTIONS.md + hookify safety rules |
+| `/ship:learn` | Capture session learnings, route to permanent stores, auto-promote and auto-prune |
+| `/ship:write-design-docs` | Create and maintain design docs with structured frontmatter for AI indexing |
 
 ## Installation
 

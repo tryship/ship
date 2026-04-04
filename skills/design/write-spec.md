@@ -82,7 +82,7 @@ An architectural change gets full sections.
 - **Changes by file** — which files are affected and what changes
 - **Intent / non-goals / forbidden shortcuts** — when relevant, state what
   counts as satisfying the task versus merely satisfying the current tests
-- **Acceptance criteria** ��� concrete, testable conditions for "done"
+- **Acceptance criteria** — concrete, testable conditions for "done"
 - **Test plan** — what tests exist, what breaks, what's needed
 - **Risks / unknowns** — anything you couldn't verify from code alone
 

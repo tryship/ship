@@ -15,6 +15,7 @@ allowed-tools:
   - Edit
   - Glob
   - Grep
+  - Skill
   - AskUserQuestion
 ---
 

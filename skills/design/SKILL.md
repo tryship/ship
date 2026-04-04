@@ -379,15 +379,16 @@ Verify `spec.md` and `plan.md` are non-empty on disk, then output:
 [Design] Planning complete for "<task title>".
 
 ## Summary
+- Scope: <focused | broad>
 - Investigation: <N> files traced, <M> existing defenses found
-- Independent replication: <M> divergences resolved (<N> by evidence, <N> by debate)
-- Execution drill: <N>/<total> steps CLEAR
+- Independent replication: <M> divergences resolved (<N> by evidence, <N> by debate)  [broad only]
+- Execution drill: <N>/<total> steps CLEAR  [broad only]
 - Stories: <N> tasks in plan.md
 
 ## Artifacts
 - spec.md: .ship/tasks/<task_id>/plan/spec.md
 - plan.md: .ship/tasks/<task_id>/plan/plan.md
-- diff-report.md: .ship/tasks/<task_id>/plan/diff-report.md
+- diff-report.md: .ship/tasks/<task_id>/plan/diff-report.md  [broad only]
 
 ## What's next?
 1. **Full pipeline (recommended)** — run /ship:auto to implement, review, QA, and ship

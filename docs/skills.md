@@ -12,6 +12,8 @@ Detailed guides for every Ship skill — philosophy, workflow, and examples.
 | [`/ship:handoff`](#handoff) | **Release Engineer** | Creates a PR with a concise verification summary, then enters the fix loop: GitHub check failures, review comments, merge conflicts. Doesn't stop until the PR checks are green or retries are exhausted. |
 | [`/ship:refactor`](#refactor) | **Structural Diagnostician** | Traces from concrete pain to structural cracks. Diagnoses and fixes directly — surgical (within-file) or structural (cross-file) execution. |
 | [`/ship:setup`](#setup) | **Repo Bootstrapper** | Detects stack, installs tools, configures CI/CD and pre-commit hooks, discovers semantic constraints from code and git history, generates AGENTS.md + CONVENTIONS.md + hookify safety rules. Audits existing harness for staleness. |
+| [`/ship:learn`](#learn) | **Session Learner** | Captures mistakes and discoveries from sessions, routes them to the right persistent store (conventions, hookify, design docs, or staging). Auto-promotes durable learnings and prunes stale ones. |
+| [`/ship:write-design-docs`](#write-design-docs) | **Design Doc Author** | Creates and maintains high-level design documents with structured frontmatter for AI indexing, status lifecycle, and verification against code. |
 
 ---
 
@@ -61,11 +63,11 @@ You:   Add rate limiting to the /api/upload endpoint
 Assistant: [Ship] Bootstrapping task: rate-limit-upload
         [Ship] Phase 2: Design — investigating codebase...
 
-        [Plan] Read src/routes/api/upload.ts, traced to middleware chain...
-        [Plan] Found existing rate limiter in src/middleware/rateLimit.ts
+        [Design] Read src/routes/api/upload.ts, traced to middleware chain...
+        [Design] Found existing rate limiter in src/middleware/rateLimit.ts
                but /api/upload bypasses it (line 42, direct route mount).
-        [Plan] Peer challenger confirmed: both plans agree on middleware approach.
-        [Plan] Execution drill passed — 3 stories, all implementable.
+        [Design] Peer challenger confirmed: both plans agree on middleware approach.
+        [Design] Execution drill passed — 3 stories, all implementable.
 
         [Ship] Design complete — 3 stories extracted.
 
@@ -459,3 +461,55 @@ Assistant: [Setup] Detecting stack...
         Hookify: 1 safety rule
         Pre-commit: wired via core.hooksPath
 ```
+
+---
+
+## `learn`
+
+This is the **self-improving harness**.
+
+Every session produces knowledge — mistakes made, surprises discovered, project quirks found. Without capture, the next session starts from scratch. `/ship:learn` captures that knowledge and routes it to the right persistent store.
+
+### Fully autonomous
+
+No user interaction. The skill reflects on the session, classifies each learning, and writes it to the correct store:
+
+| Learning type | Destination |
+|---|---|
+| Code constraint requiring AI judgment | CONVENTIONS.md |
+| Deterministic check (grep/regex can catch) | Hookify rule |
+| Architectural decision or boundary | Design doc |
+| Operational knowledge | `.learnings/LEARNINGS.md` (staging) |
+
+### Staging lifecycle
+
+`.learnings/LEARNINGS.md` is a staging area, not a permanent store. Learnings that prove durable (repeated, aged + still valid) get auto-promoted to permanent stores. Learnings that go stale (scope deleted, already covered, contradicted) get auto-pruned. The staging file stays lean.
+
+### Three layers of harness memory
+
+All injected at session start:
+
+1. **CONVENTIONS.md** — code-level guardrails
+2. **DESIGN_INDEX.md** — architecture-level guardrails
+3. **LEARNINGS.md** — operational knowledge from recent sessions
+
+---
+
+## `write-design-docs`
+
+This is **architectural guardrails for AI and humans**.
+
+Design docs prevent the most dangerous form of AI drift: locally-correct decisions that violate the overall architecture. Without design docs, an AI might merge services that must stay separate or simplify flows with hidden constraints.
+
+### Structured for AI indexing
+
+Every design doc has YAML frontmatter with fields designed for machine consumption:
+
+- **description** — one sentence for AI relevance filtering
+- **status** — trust signal (current, draft, partially-outdated, superseded, not-implemented)
+- **services** — which directories this design covers
+- **last_verified** — when the doc was last checked against code
+
+### Index injection
+
+`generate-design-index.sh` builds a compact table from all design doc frontmatter. `session-start.sh` injects this table at session start, so AI agents know what design docs exist without reading each one.
