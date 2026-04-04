@@ -20,13 +20,13 @@ fi
 # Extract a frontmatter field value from between --- markers
 get_field() {
   local file="$1" key="$2"
-  sed -n '/^---$/,/^---$/p' "$file" | grep "^${key}:" | head -1 | sed "s/^${key}:[[:space:]]*//" | sed 's/^"//;s/"$//' | tr -d '\r'
+  sed -n '/^---$/,/^---$/p' "$file" | grep "^${key}:" | head -1 | sed "s/^${key}:[[:space:]]*//" | sed 's/^"//;s/"$//' | tr -d '\r' || true
 }
 
 # Extract services array: [a, b] → "a, b"
 get_services() {
   local file="$1"
-  sed -n '/^---$/,/^---$/p' "$file" | grep '^services:' | head -1 | sed 's/.*\[//;s/\].*//' | tr -d '"' | tr -d '\r'
+  sed -n '/^---$/,/^---$/p' "$file" | grep '^services:' | head -1 | sed 's/.*\[//;s/\].*//' | tr -d '"' | tr -d '\r' || true
 }
 
 # Status emoji lookup
