@@ -1,93 +1,81 @@
 ---
 name: design-docs
-version: 1.0.0
-description: >
-  Create and maintain high-level design documents that prevent AI drift
-  and capture architectural decisions. Design docs are guardrails — they
-  tell AI agents what boundaries exist and why, so agents don't make
-  locally-correct decisions that violate the overall architecture.
-  Use when: write design doc, create design doc, update design doc,
-  review design doc, architecture decision, ADR.
-allowed-tools:
-  - Bash
-  - Read
-  - Write
-  - Edit
-  - Glob
-  - Grep
-  - AskUserQuestion
+description: Use when creating, editing, or reviewing design docs under docs/design/ — enforces frontmatter format, numbering, status lifecycle, and writing conventions
 ---
 
-# Ship: Design Docs
+# Design Document Standard
 
-Design docs are **architectural guardrails for AI and humans**.
+All design documents live under `docs/design/`. Follow this standard when creating new docs or modifying existing ones.
 
-They answer the questions that cause drift when unanswered:
-- Why is the code structured this way?
-- What boundaries must not be crossed?
-- What trade-offs were made and why?
-- What was tried and rejected?
+## Frontmatter (Required)
 
-Without design docs, an AI agent sees code and "improves" it — merging
-services that must stay separate, simplifying flows that have hidden
-constraints, re-proposing ideas that already failed.
-
-A short, decisive design doc prevents more drift than a comprehensive
-one nobody finishes reading. Most design docs should be under 200 lines.
-
-## Red Flag
-
-**Never:**
-- Write a design doc longer than 200 lines without splitting it
-- Lead with analysis instead of the decision
-- Include implementation details that belong in code
-- Mix languages within one document
-- Silently delete history — mark superseded sections, don't erase them
-- Create a design doc without adding it to the docs index
-- Mark a doc as `current` without verifying claims against code
-
----
-
-## Frontmatter
-
-Every design doc starts with YAML frontmatter for AI indexing:
+Every design doc MUST start with YAML frontmatter:
 
 ```yaml
 ---
 title: "Human-readable title"
-description: "One sentence, under 120 chars — enough for AI to decide whether to read this doc"
-status: current | draft | partially-outdated | superseded | not-implemented
-superseded_by: "new-doc-name"  # only when status is superseded
-scope:
-  - src/auth        # directories this design covers
-  - src/middleware
-last_verified: "2026-04-04"    # last checked against code
+description: "One sentence, under 120 chars — enough for an AI to decide whether to read the doc."
+number: "029"
+status: current | partially-outdated | superseded | draft | not-implemented
+superseded_by: "034"        # only if status is superseded
+related: ["001", "023"]     # other design doc numbers
+services: [backend, agent-service]  # affected go-services/ directories or top-level dirs
+last_verified: "2026-04-02" # date when doc was last checked against code
 ---
 ```
 
-### Field rules
+### Field Rules
 
-- **description**: Write for an AI deciding "should I read this?" — not a summary of the doc, but a signal of what it covers.
-- **status**: The trust signal. See Status Lifecycle below.
-- **scope**: Directories or modules this design covers. When an agent works on files in scope, it should read this doc first.
-- **last_verified**: ISO date. Update whenever you confirm the doc matches code.
+- **title**: Match the `# heading` below the frontmatter. Use quotes if it contains special chars.
+- **description**: One concise sentence. This gets injected into session context as an index — write it for an AI that needs to decide "should I read this doc?" without opening it. Max 120 chars.
+- **number**: Unique across `docs/design/`. Sub-docs in a directory (e.g., `017-multi-instance-isolation/`) share the parent number. Agent docs use `"agents/001"` format.
+- **status**: One of the 5 allowed values. See Status Lifecycle below.
+- **superseded_by**: Required when status is `superseded`. Points to the replacement doc number.
+- **related**: Array of doc numbers that cover related topics. Helps navigation.
+- **services**: Array of directory names from `go-services/` (e.g., `backend`, `gateway-service`, `agent-service`) or top-level dirs (e.g., `agent`, `frontend`, `shipcli-ts`, `deploy`). Tells you which code this doc describes.
+- **last_verified**: ISO date when someone last confirmed the doc matches the codebase.
 
 ## Status Lifecycle
 
 ```
 draft → current → partially-outdated → superseded
-                ↘ not-implemented (design was never built)
+                ↘ not-implemented (if design was never built)
 ```
 
-| Status | AI should... |
-|--------|-------------|
-| `current` | Trust and follow this doc |
-| `draft` | Read for context but don't build against it |
-| `partially-outdated` | Trust the principles, verify the details |
-| `superseded` | Ignore — read the replacement instead |
-| `not-implemented` | Design exists but code doesn't match it yet |
+| Status | Meaning |
+|--------|---------|
+| `draft` | Design proposed but not yet approved or implemented |
+| `current` | Design matches production code |
+| `partially-outdated` | Core design still applies but some details have drifted from code |
+| `superseded` | Replaced by another doc — must set `superseded_by` |
+| `not-implemented` | Design was approved but never built |
 
-When changing status, update `last_verified` to today.
+When changing status, also update `last_verified` to today's date.
+
+## Numbering
+
+- Next available number: check `ls docs/design/ | sort` and pick the next integer.
+- No duplicate numbers. Each top-level doc or directory gets a unique number.
+- Sub-documents inside a directory (e.g., `014-credentials-vault/plan-1-vault-service.md`) share the parent number.
+- Agent-specific docs go under `docs/design/agents/` with their own numbering sequence.
+
+## File Naming
+
+```
+{number}-{kebab-case-topic}.md
+```
+
+Examples:
+- `029-prototype-v3-web-migration.md`
+- `agents/008-coding-agent-core-executor.md`
+
+Directories for multi-doc topics:
+```
+017-multi-instance-isolation/
+├── helm-test-env-deployment-model.md
+├── isolated-ingress-shared-alb-proposal.md
+└── TBD.md
+```
 
 ## Document Structure
 
@@ -96,143 +84,48 @@ When changing status, update `last_verified` to today.
 (frontmatter)
 ---
 
-# Title
+# {Number} — {Title}
 
-## Decision
+## Status
 
-What we chose. 2-3 sentences. A reader should understand the core
-design decision from this section alone.
+{Status explanation with context — why it has this status, what changed}
 
-## Context
+## Summary
 
-What problem or constraint led to this decision. Why the status quo
-was insufficient. Keep it brief — enough to understand the why,
-not a full history.
+{2-3 sentences: what problem this solves and the key design decision}
 
-## Design
+## (Body sections — flexible per topic)
 
-How it works at a high level. Use concrete file paths, module names,
-and API endpoints — not abstractions. Diagrams welcome but not required.
+## References
 
-This section scales to complexity: a simple boundary decision gets a
-paragraph, a system architecture gets subsections.
-
-## Boundaries
-
-**The anti-drift section.** What must NOT change and why.
-
-Examples:
-- "Service A and Service B must not share a database — they need
-  independent scaling and different consistency guarantees."
-- "Auth checks in middleware must not be simplified or removed to
-  fix downstream errors — see incident 2025-03-12."
-- "The event bus is async by design. Do not add sync request-reply
-  patterns even if they seem simpler for a specific use case."
-
-Be specific. "Don't break the architecture" is useless. "These two
-modules must not import from each other because X" is useful.
-
-## Trade-offs
-
-What we gave up and why it's acceptable. This prevents an AI from
-"fixing" something that was a deliberate choice.
-
-Example: "We chose eventual consistency over strong consistency for
-user preferences. This means preferences may take up to 5s to
-propagate. This is acceptable because preferences are read-heavy
-and rarely change."
-
-## Alternatives Considered (optional)
-
-Brief — one paragraph per alternative. What was considered, why it
-was rejected. Prevents AI from re-proposing failed ideas.
-
-## References (optional)
-
-Related design docs, external links, prior art.
+- Related docs, external links, prior art
 ```
 
-## File Organization
+### Writing Rules
 
-Design docs live in `docs/design/` (create the directory if it doesn't
-exist). Use descriptive kebab-case filenames:
+- Lead with the decision, not the analysis. Readers want to know "what did we choose" before "what did we consider."
+- Use concrete file paths, struct names, and API endpoints — not abstractions.
+- If the doc is in Chinese, keep it in Chinese. If in English, keep it in English. Don't mix.
+- Mark superseded sections inline with strikethrough or a note, don't silently delete history.
+- When a design changes, update the existing doc rather than creating a new one — unless the change is a complete replacement (then supersede).
 
-```
-docs/design/
-  auth-architecture.md
-  event-bus-design.md
-  database-per-service.md
-  agent-isolation-model.md
-```
+## Cross-References
 
-If a topic needs multiple docs, use a directory:
+- Reference other design docs by number: "see 023-agent-broker-architecture"
+- When renaming/renumbering, update ALL references. Use: `grep -r "old-name" docs/ AGENTS.md README.md deploy/`
+- The `docs/README.md` index must include every design doc. Add your doc there when creating it.
 
-```
-docs/design/multi-instance-isolation/
-  overview.md
-  networking.md
-  storage.md
-```
+## Updating docs/README.md
 
-### Docs index
+When creating a new doc, add it to the appropriate section in `docs/README.md`:
+- Core Architecture, Agent, PTY And Terminal, Runtime, Platform, Channels, Guides, Desktop, Tooling, Historical
 
-If `docs/README.md` exists, add your doc there. If no docs index
-exists, create `docs/design/README.md` listing all design docs with
-their descriptions (from frontmatter).
+## Verification
 
-## Creating a Design Doc
-
-### Phase 1: Investigate
-
-Before writing, read the code that this design covers:
-- Trace the key paths
-- Identify existing boundaries (explicit or implicit)
-- Look for comments or commit messages that explain "why"
-- Check if a design doc already exists for this area
-
-### Phase 2: Write
-
-Follow the document structure above. Focus on:
-- **Decision first** — a reader should know what was chosen in 10 seconds
-- **Boundaries are the most important section** — this is what prevents drift
-- **Be concrete** — file paths, module names, endpoint names, not abstractions
-- **Be brief** — under 200 lines. If longer, split into multiple docs.
-
-### Phase 3: Verify
-
-Before setting status to `current`:
+Before marking a doc as `current`, verify key claims against code:
 - Do referenced file paths exist?
-- Do referenced module/function names exist?
-- Does the described architecture match the actual code structure?
-- Are the stated boundaries actually maintained in the code?
+- Do referenced struct/function names exist?
+- Do referenced API endpoints exist?
+- Does the described architecture match the actual service boundaries?
 
-Update `last_verified` after verification.
-
-## Updating a Design Doc
-
-When code changes affect a design doc's scope:
-
-1. Read the design doc
-2. Check if the change violates any stated boundaries
-3. If the design is still accurate → update `last_verified`
-4. If details have drifted → update the doc, set `partially-outdated` if unsure
-5. If the design is being replaced → write a new doc, set old one to `superseded`
-
-Prefer updating a doc over creating a new one — unless the change is
-a complete architectural replacement.
-
-## Execution Handoff
-
-After creating or updating a design doc:
-
-```
-[Design Docs] <Created|Updated|Verified> — <doc filename>
-  Status: <status>
-  Scope: <directories covered>
-  Boundaries: <N> architectural constraints documented
-
-## What's next?
-1. **Review** — read the doc and give feedback
-2. **Implement** — run /ship:auto to build against this design
-3. **Share** — the doc is ready for team review
-```
+Update `last_verified` when you complete verification.
