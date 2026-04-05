@@ -4,7 +4,7 @@ version: 1.0.0
 description: >
   Capture learnings from sessions to prevent repeating mistakes.
   Reflects on what went wrong or was discovered, routes each learning
-  to the right store (conventions, hookify, design doc, or staging).
+  to .learnings/LEARNINGS.md (and hookify/design docs when applicable).
   Use when: learn, what did we learn, capture learning, session retro,
   avoid this mistake, remember this.
   Auto-invoked at the end of /ship:auto pipelines.

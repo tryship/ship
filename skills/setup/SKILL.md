@@ -447,7 +447,7 @@ variables, etc. Cover all detected languages and tools thoroughly.
 .ship/audit/
 ```
 
-Do NOT gitignore `.ship/rules/` or `.ship/hooks/`.
+Do NOT gitignore `.ship/hooks/` or `.learnings/`.
 
 **Always include Claude Code rules:**
 ```

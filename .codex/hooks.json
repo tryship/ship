@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "bash \"$(git rev-parse --show-toplevel)/scripts/session-start.sh\"",
-            "statusMessage": "Loading Ship conventions"
+            "statusMessage": "Loading Ship learnings and design index"
           }
         ]
       }

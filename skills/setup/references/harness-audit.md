@@ -8,7 +8,7 @@ when setup detects that harness files already exist (Phase 3.5).
 Read each file that exists:
 - `AGENTS.md`
 - `CLAUDE.md`
-- `.ship/rules/CONVENTIONS.md`
+- `.learnings/LEARNINGS.md`
 - `DEVELOPMENT.md`
 
 ## Step 2: Extract and verify claims
@@ -32,9 +32,9 @@ Verify: does the directory exist? Do the files in it match the description?
 References to specific tools (e.g., "we use ESLint for linting").
 Verify: is the tool still in dependencies? Is it still configured?
 
-### Convention/rule claims (CONVENTIONS.md only)
-Each rule's `Scope:` glob pattern.
-Verify: do files matching the scope still exist?
+### Learning/rule claims (.learnings/LEARNINGS.md only)
+Each entry's `Related Files:` paths.
+Verify: do the referenced files still exist?
 
 ## Step 3: Classify findings
 
@@ -55,8 +55,8 @@ AGENTS.md: <N> claims checked
   ✓ [accurate] Architecture description of Main/Preload/Renderer boundaries
   ...
 
-CONVENTIONS.md: <N> rules checked
-  ✗ [stale] Rule scoped to src/payments/v1/ — directory deleted
+LEARNINGS.md: <N> entries checked
+  ✗ [stale] Entry references src/payments/v1/ — directory deleted
   ✓ [accurate] Auth flow constraint still holds
   ...
 
