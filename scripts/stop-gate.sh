@@ -52,14 +52,25 @@ fi
 # ── READ DESCRIPTION ─────────────────────────────────────────
 DESCRIPTION=$(awk '/^---$/{i++; next} i>=2' "$STATE_FILE")
 
+# ── FIX ROUND COUNTERS ──────────────────────────────────────
+REVIEW_FIX_ROUND=$(echo "$FRONTMATTER" | grep '^review_fix_round:' | sed 's/review_fix_round: *//')
+QA_FIX_ROUND=$(echo "$FRONTMATTER" | grep '^qa_fix_round:' | sed 's/qa_fix_round: *//')
+
+FIX_INFO=""
+case "$PHASE" in
+  review_fix) [ -n "$REVIEW_FIX_ROUND" ] && FIX_INFO="Review fix round: ${REVIEW_FIX_ROUND}/3" ;;
+  qa_fix)     [ -n "$QA_FIX_ROUND" ] && FIX_INFO="QA fix round: ${QA_FIX_ROUND}/3" ;;
+esac
+
 # ── BLOCK EXIT ───────────────────────────────────────────────
 REASON="[Ship] Auto pipeline is active. Do not exit.
 Task: $TASK_ID
 Branch: $BRANCH
 Base branch: $BASE_BRANCH
-Current phase: $PHASE
+Current phase: $PHASE${FIX_INFO:+
+$FIX_INFO}
 Description: $DESCRIPTION
 
-Resume the pipeline from phase: $PHASE"
+Resume: run /ship:auto — it will read the state file and continue from phase: $PHASE"
 
 jq -n --arg reason "$REASON" '{"decision": "block", "reason": $reason}'
